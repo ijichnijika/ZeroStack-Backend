@@ -1,0 +1,17 @@
+spring:
+  application:
+    name: ZeroStack-backend
+server:
+  port: 8080
+  servlet:
+      context-path: /api
+# springdoc-openapi
+springdoc:
+  group-configs:
+    - group: 'default'
+      packages-to-scan: com.ZeroStack.controller
+knife4j:
+  enable: true
+  setting:
+    language: zh_cn
+
