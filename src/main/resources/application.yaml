@@ -1,6 +1,12 @@
 spring:
   application:
     name: ZeroStack-backend
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/ZeroStack
+    username: root
+    password: waxyf2022
+
 server:
   port: 8080
   servlet:
