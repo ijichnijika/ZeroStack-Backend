@@ -12,10 +12,7 @@ import com.ZeroStack.constant.UserConstant;
 import com.ZeroStack.exception.BusinessException;
 import com.ZeroStack.exception.ErrorCode;
 import com.ZeroStack.exception.ThrowUtils;
-import com.ZeroStack.model.dto.app.AppAddRequest;
-import com.ZeroStack.model.dto.app.AppAdminUpdateRequest;
-import com.ZeroStack.model.dto.app.AppQueryRequest;
-import com.ZeroStack.model.dto.app.AppUpdateRequest;
+import com.ZeroStack.model.dto.app.*;
 import com.ZeroStack.model.entity.App;
 import com.ZeroStack.model.entity.User;
 import com.ZeroStack.model.enums.CodeGenTypeEnum;
@@ -87,6 +84,25 @@ public class AppController {
                                 .data("")
                                 .build()
                 ));
+    }
+
+    /**
+     * 应用部署
+     *
+     * @param appDeployRequest 部署请求
+     * @param request          请求
+     * @return 部署 URL
+     */
+    @PostMapping("/deploy")
+    public BaseResponse<String> deployApp(@RequestBody AppDeployRequest appDeployRequest, HttpServletRequest request) {
+        ThrowUtils.throwIf(appDeployRequest == null, ErrorCode.PARAMS_ERROR);
+        Long appId = appDeployRequest.getAppId();
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用 ID 不能为空");
+        // 获取当前登录用户
+        User loginUser = userService.getLoginUser(request);
+        // 调用服务部署应用
+        String deployUrl = appService.deployApp(appId, loginUser);
+        return ResultUtils.success(deployUrl);
     }
 
 

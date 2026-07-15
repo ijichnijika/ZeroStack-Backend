@@ -18,9 +18,20 @@ import java.util.List;
  */
 public interface AppService extends IService<App> {
     /**
-     *
+     * 获取流式生成的应用
+     * @param appId 应用id
+     * @param message 消息
+     * @param loginUser 登录用户
+     * @return 流式生成的应用
      */
     Flux<String> chatToGenCode(Long appId, String message, User loginUser);
+    /**
+     * 部署网页应用
+     * @param appId 应用id
+     * @param loginUser 登录用户
+     * @return 部署结果
+     */
+    String deployApp(Long appId, User loginUser);
     /**
      * 获取脱敏后应用信息
      * @param app 应用
