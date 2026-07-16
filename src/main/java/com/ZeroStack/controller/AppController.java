@@ -48,6 +48,30 @@ public class AppController {
     @Resource
     private UserService userService;
 
+
+    /**
+     * 调用 AI 生成应用标题，并自动更新数据库
+     *
+     * @param appGenTitleRequest 生成标题请求
+     * @param request            请求对象
+     * @return 更新后的标题字符串
+     */
+    @PostMapping("/chat/gen/title")
+    public BaseResponse<String> genAppTitle(@RequestBody AppGenTitleRequest appGenTitleRequest, HttpServletRequest request) {
+        ThrowUtils.throwIf(appGenTitleRequest == null, ErrorCode.PARAMS_ERROR);
+        Long appId = appGenTitleRequest.getAppId();
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用 ID 不能为空");
+
+        // 1. 获取当前登录用户
+        User loginUser = userService.getLoginUser(request);
+        String prompt = appGenTitleRequest.getPrompt();
+
+        // 2. 调用 Service 层生成标题并更新数据库
+        String title = appService.genAppTitle(appId, prompt, loginUser);
+
+        return ResultUtils.success(title);
+    }
+
     /**
      * 应用聊天生成代码（流式 SSE）
      *

@@ -1,6 +1,7 @@
 package com.ZeroStack.core;
 
 import com.ZeroStack.ai.AiCodeGeneratorService;
+import com.ZeroStack.ai.model.AppTitleResult;
 import com.ZeroStack.ai.model.HtmlCodeResult;
 import com.ZeroStack.ai.model.MultiFileCodeResult;
 import com.ZeroStack.core.parser.CodeParserExecutor;
@@ -106,6 +107,31 @@ public class AiCodeGeneratorFacade {
                 log.error("保存失败: {}", e.getMessage());
             }
         });
+    }
+
+    /**
+     * 调用 AI 生成应用标题
+     *
+     * @param userMessage 用户提示词
+     * @return 生成的标题
+     */
+    public String generateTitle(String userMessage) {
+        if (userMessage == null || userMessage.trim().isEmpty()) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "提示词不能为空");
+        }
+        AppTitleResult result = aiCodeGeneratorService.generateTitle(userMessage);
+        String title = null;
+        if (result != null) {
+            title = result.getTitle();
+        }
+        if (title != null) {
+            title = title.trim();
+            // 防止模型不听话生成过长标题
+            if (title.length() > 12) {
+                title = title.substring(0, 12);
+            }
+        }
+        return title;
     }
 
 }

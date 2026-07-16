@@ -48,6 +48,32 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
     private AiCodeGeneratorFacade aiCodeGeneratorFacade;
 
     @Override
+    public String genAppTitle(Long appId, String prompt, User loginUser) {
+        // 1. 校验应用是否存在及权限
+        App app = this.getById(appId);
+        ThrowUtils.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR, "应用不存在");
+        if (!app.getUserId().equals(loginUser.getId())) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "无权限修改该应用");
+        }
+
+        // 2. 获取提示词，如果请求未传则使用原有 initPrompt
+        if (StrUtil.isBlank(prompt)) {
+            prompt = app.getInitPrompt();
+        }
+        ThrowUtils.throwIf(StrUtil.isBlank(prompt), ErrorCode.PARAMS_ERROR, "prompt 不能为空");
+
+        // 3. 调用 AI 生成标题
+        String title = aiCodeGeneratorFacade.generateTitle(prompt);
+
+        // 4. 更新到数据库
+        app.setAppName(title);
+        boolean result = this.updateById(app);
+        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "标题更新失败");
+
+        return title;
+    }
+
+    @Override
     public Flux<String> chatToGenCode(Long appId, String message, User loginUser) {
         // 1. 参数校验
         ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用 ID 不能为空");
