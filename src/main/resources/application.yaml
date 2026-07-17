@@ -8,11 +8,17 @@ spring:
     password: waxyf2022
   profiles:
     active: local
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password:
+      ttl: 3600
 
 server:
   port: 8080
   servlet:
-      context-path: /api
+    context-path: /api
 # springdoc-openapi
 springdoc:
   group-configs:

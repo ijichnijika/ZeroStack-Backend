@@ -1,6 +1,7 @@
 package com.ZeroStack.core;
 
 import com.ZeroStack.ai.AiCodeGeneratorService;
+import com.ZeroStack.ai.AiCodeGeneratorServiceFactory;
 import com.ZeroStack.ai.model.AppTitleResult;
 import com.ZeroStack.ai.model.HtmlCodeResult;
 import com.ZeroStack.ai.model.MultiFileCodeResult;
@@ -24,7 +25,7 @@ import java.io.File;
 public class AiCodeGeneratorFacade {
 
     @Resource
-    private AiCodeGeneratorService aiCodeGeneratorService;
+    private AiCodeGeneratorServiceFactory aiCodeGeneratorServiceFactory;
 
     /**
      * 统一入口：根据类型生成并保存代码(使用appid)
@@ -38,6 +39,7 @@ public class AiCodeGeneratorFacade {
         if (codeGenTypeEnum == null) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "生成类型为空");
         }
+        AiCodeGeneratorService aiCodeGeneratorService = aiCodeGeneratorServiceFactory.getAiCodeGeneratorService(appId);
         return switch (codeGenTypeEnum) {
             case HTML -> {
                 HtmlCodeResult result = aiCodeGeneratorService.generateHtmlCode(userMessage);
@@ -65,6 +67,7 @@ public class AiCodeGeneratorFacade {
         if (codeGenTypeEnum == null) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "生成类型为空");
         }
+        AiCodeGeneratorService aiCodeGeneratorService = aiCodeGeneratorServiceFactory.getAiCodeGeneratorService(appId);
         return switch (codeGenTypeEnum) {
             case HTML -> {
                 Flux<String> codeStream = aiCodeGeneratorService.generateHtmlCodeStream(userMessage);
@@ -119,6 +122,7 @@ public class AiCodeGeneratorFacade {
         if (userMessage == null || userMessage.trim().isEmpty()) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "提示词不能为空");
         }
+        AiCodeGeneratorService aiCodeGeneratorService = aiCodeGeneratorServiceFactory.getStatelessAiCodeGeneratorService();
         AppTitleResult result = aiCodeGeneratorService.generateTitle(userMessage);
         String title = null;
         if (result != null) {
