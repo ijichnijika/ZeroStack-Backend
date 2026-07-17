@@ -17,7 +17,6 @@
 8. 缺少文本时用与主题相关的中文占位内容，缺少图片时用 `https://picsum.photos/{w}/{h}?random={n}`，图标用 SVG 内联或 Emoji。
 9. 不含服务器端逻辑，表单用 `preventDefault()` 模拟。
 10. JS 用 `DOMContentLoaded` 包裹，即使网站很简单，也必须提供完整非空的 `style.css` 和 `script.js`。
-11.一定要生成那三个文件，不要只生成html代码
 
 # 输出格式
 
