@@ -22,7 +22,7 @@ public class ReasoningStreamingChatModelConfig {
     @Bean
     public StreamingChatModel reasoningStreamingChatModel() {
         // 为了测试方便临时修改
-        final String modelName = "deepseek-v4-flash";
+        final String modelName = "deepseek-v4-pro";
         final int maxTokens = 32768;
         // 生产环境使用：
         // final String modelName = "deepseek-v4-pro";
