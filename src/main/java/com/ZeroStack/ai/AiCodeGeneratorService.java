@@ -1,6 +1,5 @@
 package com.ZeroStack.ai;
 
-import com.ZeroStack.ai.model.AppTitleResult;
 import com.ZeroStack.ai.model.HtmlCodeResult;
 import com.ZeroStack.ai.model.MultiFileCodeResult;
 import dev.langchain4j.service.MemoryId;
@@ -11,14 +10,6 @@ import reactor.core.publisher.Flux;
 
 public interface AiCodeGeneratorService {
 
-    /**
-     * 生成应用标题
-     *
-     * @param userMessage 用户消息
-     * @return 生成的标题结果
-     */
-    @SystemMessage(fromResource = "prompt/codegen-title-system-prompt.txt")
-    AppTitleResult generateTitle(String userMessage);
 
     /**
      * 生成 HTML 代码

@@ -3,6 +3,7 @@ package com.ZeroStack.core;
 import cn.hutool.json.JSONUtil;
 import com.ZeroStack.ai.AiCodeGeneratorService;
 import com.ZeroStack.ai.AiCodeGeneratorServiceFactory;
+import com.ZeroStack.ai.AiTitleGeneratorService;
 import com.ZeroStack.ai.model.AppTitleResult;
 import com.ZeroStack.ai.model.HtmlCodeResult;
 import com.ZeroStack.ai.model.MultiFileCodeResult;
@@ -33,6 +34,9 @@ public class AiCodeGeneratorFacade {
 
     @Resource
     private AiCodeGeneratorServiceFactory aiCodeGeneratorServiceFactory;
+
+    @Resource
+    private AiTitleGeneratorService aiTitleGeneratorService;
 
     /**
      * 统一入口：根据类型生成并保存代码(使用appid)
@@ -165,8 +169,7 @@ public class AiCodeGeneratorFacade {
         if (userMessage == null || userMessage.trim().isEmpty()) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "提示词不能为空");
         }
-        AiCodeGeneratorService aiCodeGeneratorService = aiCodeGeneratorServiceFactory.getStatelessAiCodeGeneratorService();
-        AppTitleResult result = aiCodeGeneratorService.generateTitle(userMessage);
+        AppTitleResult result = aiTitleGeneratorService.generateTitle(userMessage);
         String title = null;
         if (result != null) {
             title = result.getTitle();

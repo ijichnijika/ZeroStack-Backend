@@ -15,6 +15,7 @@ import dev.langchain4j.model.chat.StreamingChatModel;
 import dev.langchain4j.service.AiServices;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.time.Duration;
@@ -37,16 +38,24 @@ public class AiCodeGeneratorServiceFactory {
 
     @Resource
     private ChatHistoryService chatHistoryService;
+
     /**
-     * 获取无记忆的 AI 服务实例（用于生成标题等无状态任务）
+     * 注册路由 AI 服务为 Spring Bean
      */
-    public AiCodeGeneratorService getStatelessAiCodeGeneratorService() {
-        return AiServices.builder(AiCodeGeneratorService.class)
+    @Bean
+    public AiCodeGenTypeRoutingService aiCodeGenTypeRoutingService() {
+        return AiServices.builder(AiCodeGenTypeRoutingService.class)
                 .chatModel(chatModel)
-                .streamingChatModel(openAiStreamingChatModel)
-                // 接口中存在 @MemoryId 注解的方法，LangChain4j 要求必须配置 chatMemoryProvider
-                // 此实例为无状态用途，使用独立的内存窗口满足框架校验要求
-                .chatMemoryProvider(memoryId -> MessageWindowChatMemory.withMaxMessages(10))
+                .build();
+    }
+
+    /**
+     * 注册生成标题的 AI 服务为 Spring Bean
+     */
+    @Bean
+    public AiTitleGeneratorService aiTitleGeneratorService() {
+        return AiServices.builder(AiTitleGeneratorService.class)
+                .chatModel(chatModel)
                 .build();
     }
 
@@ -84,7 +93,6 @@ public class AiCodeGeneratorServiceFactory {
         return appId + "_" + codeGenType.getValue();
     }
 
-
     /**
      * 创建新的 AI 服务实例
      */
@@ -106,8 +114,7 @@ public class AiCodeGeneratorServiceFactory {
                     .chatMemoryProvider(memoryId -> chatMemory)
                     .tools(new FileWriteTool())
                     .hallucinatedToolNameStrategy(toolExecutionRequest -> ToolExecutionResultMessage.from(
-                            toolExecutionRequest, "Error: there is no tool called " + toolExecutionRequest.name()
-                    ))
+                            toolExecutionRequest, "Error: there is no tool called " + toolExecutionRequest.name()))
                     .build();
             // HTML 和多文件生成使用默认模型
             case HTML, MULTI_FILE -> AiServices.builder(AiCodeGeneratorService.class)
