@@ -77,7 +77,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
     public String genAppTitle(Long appId, String prompt, User loginUser) {
         // 1. 校验应用是否存在及权限
         App app = this.getById(appId);
-        ThrowUtils.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR, "应用不存在");
+        ThrowUtils.throwIf(app == null  || appId <= 0, ErrorCode.NOT_FOUND_ERROR, "应用不存在");
         if (!app.getUserId().equals(loginUser.getId())) {
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "无权限修改该应用");
         }
