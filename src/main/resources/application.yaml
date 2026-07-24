@@ -1,4 +1,7 @@
 spring:
+  session:
+    store-type: redis
+    timeout: 2592000
   application:
     name: ZeroStack-backend
   datasource:

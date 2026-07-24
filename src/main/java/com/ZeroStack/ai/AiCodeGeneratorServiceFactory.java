@@ -42,25 +42,6 @@ public class AiCodeGeneratorServiceFactory {
     @Resource
     private ToolManager toolManager;
 
-    /**
-     * 注册路由 AI 服务为 Spring Bean
-     */
-    @Bean
-    public AiCodeGenTypeRoutingService aiCodeGenTypeRoutingService() {
-        return AiServices.builder(AiCodeGenTypeRoutingService.class)
-                .chatModel(chatModel)
-                .build();
-    }
-
-    /**
-     * 注册生成标题的 AI 服务为 Spring Bean
-     */
-    @Bean
-    public AiTitleGeneratorService aiTitleGeneratorService() {
-        return AiServices.builder(AiTitleGeneratorService.class)
-                .chatModel(chatModel)
-                .build();
-    }
 
     /**
      * AI 服务实例缓存
@@ -77,6 +58,7 @@ public class AiCodeGeneratorServiceFactory {
     /**
      * 根据 appId 获取服务（带缓存）这个方法是为了兼容历史逻辑
      */
+    @Deprecated
     public AiCodeGeneratorService getAiCodeGeneratorService(long appId) {
         return getAiCodeGeneratorService(appId, CodeGenTypeEnum.HTML);
     }
@@ -105,7 +87,7 @@ public class AiCodeGeneratorServiceFactory {
                 .builder()
                 .id(appId)
                 .chatMemoryStore(redisChatMemoryStore)
-                .maxMessages(20)
+                .maxMessages(50)
                 .build();
         // 从数据库加载历史对话到记忆中
         chatHistoryService.loadChatHistoryToMemory(appId, chatMemory, 20);
