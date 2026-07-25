@@ -7,9 +7,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
 class CodeGenWorkflowTest {
-
-
-
     @Test
     void testSimpleHtmlWorkflow() {
         WorkflowContext result = new CodeGenWorkflow().executeWorkflow("创建一个简单的个人主页");

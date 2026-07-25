@@ -32,6 +32,7 @@ import static java.util.stream.Collectors.toList;
 public class OpenAiStreamingResponseBuilder {
 
     private final StringBuffer contentBuilder = new StringBuffer();
+    private final StringBuffer reasoningContentBuilder;
 
     private final StringBuffer toolNameBuilder = new StringBuffer();
     private final StringBuffer toolArgumentsBuilder = new StringBuffer();
@@ -46,6 +47,15 @@ public class OpenAiStreamingResponseBuilder {
     private final AtomicReference<TokenUsage> tokenUsage = new AtomicReference<>();
     private final AtomicReference<FinishReason> finishReason = new AtomicReference<>();
 
+    private final boolean returnThinking;
+    public OpenAiStreamingResponseBuilder(boolean returnThinking) {
+        this.returnThinking = returnThinking;
+        if (returnThinking) {
+            this.reasoningContentBuilder = new StringBuffer();
+        } else {
+            this.reasoningContentBuilder = null;
+        }
+    }
     public void append(ChatCompletionResponse partialResponse) {
         if (partialResponse == null) {
             return;
@@ -95,6 +105,10 @@ public class OpenAiStreamingResponseBuilder {
         String content = delta.content();
         if (!isNullOrEmpty(content)) {
             this.contentBuilder.append(content);
+        }
+        String reasoningContent = delta.reasoningContent();
+        if (returnThinking && !isNullOrEmpty(reasoningContent)) {
+            this.reasoningContentBuilder.append(reasoningContent);
         }
 
         if (delta.functionCall() != null) {
@@ -187,10 +201,19 @@ public class OpenAiStreamingResponseBuilder {
                     .arguments(toolArgumentsBuilder.toString())
                     .build();
 
-            AiMessage aiMessage = isNullOrBlank(text) ?
-                    AiMessage.from(toolExecutionRequest) :
-                    AiMessage.from(text, singletonList(toolExecutionRequest));
+//            AiMessage aiMessage = isNullOrBlank(text) ?
+//                    AiMessage.from(toolExecutionRequest) :
+//                    AiMessage.from(text, singletonList(toolExecutionRequest));
 
+            String thinking = null;
+            if (returnThinking) {
+                thinking = reasoningContentBuilder.toString();
+            }
+            AiMessage aiMessage = AiMessage.builder()
+                    .text(text)
+                    .thinking(thinking)
+                    .toolExecutionRequests(singletonList(toolExecutionRequest))
+                    .build();
             return ChatResponse.builder()
                     .aiMessage(aiMessage)
                     .metadata(chatResponseMetadata)
@@ -206,10 +229,18 @@ public class OpenAiStreamingResponseBuilder {
                             .build())
                     .collect(toList());
 
-            AiMessage aiMessage = isNullOrBlank(text) ?
-                    AiMessage.from(toolExecutionRequests) :
-                    AiMessage.from(text, toolExecutionRequests);
-
+//            AiMessage aiMessage = isNullOrBlank(text) ?
+//                    AiMessage.from(toolExecutionRequests) :
+//                    AiMessage.from(text, toolExecutionRequests);
+            String thinking = null;
+            if (returnThinking) {
+                thinking = reasoningContentBuilder.toString();
+            }
+            AiMessage aiMessage = AiMessage.builder()
+                    .text(text)
+                    .thinking(thinking)
+                    .toolExecutionRequests(toolExecutionRequests)
+                    .build();
             return ChatResponse.builder()
                     .aiMessage(aiMessage)
                     .metadata(chatResponseMetadata)

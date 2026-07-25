@@ -32,6 +32,7 @@ public class ReasoningStreamingChatModelConfig {
                 .baseUrl(baseUrl)
                 .modelName(modelName)
                 .maxTokens(maxTokens)
+                .returnThinking(true)
                 .logRequests(true)
                 .logResponses(true)
                 .build();

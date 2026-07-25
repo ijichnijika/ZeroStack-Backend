@@ -12,6 +12,7 @@ import dev.langchain4j.guardrail.OutputGuardrailRequest;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.response.ChatResponse;
+import dev.langchain4j.model.chat.response.PartialThinking;
 import dev.langchain4j.model.chat.response.StreamingChatResponseHandler;
 import dev.langchain4j.model.output.TokenUsage;
 import dev.langchain4j.service.tool.ToolExecution;
@@ -31,7 +32,7 @@ import static dev.langchain4j.internal.ValidationUtils.ensureNotNull;
 /**
  * Handles response from a language model for AI Service that is streamed token-by-token. Handles both regular (text)
  * responses and responses with the request to execute one or multiple tools.
- */
+        */
 @Internal
 class AiServiceStreamingResponseHandler implements StreamingChatResponseHandler {
     private static final Logger LOG = LoggerFactory.getLogger(AiServiceStreamingResponseHandler.class);
@@ -43,6 +44,7 @@ class AiServiceStreamingResponseHandler implements StreamingChatResponseHandler 
     private final Object methodKey;
 
     private final Consumer<String> partialResponseHandler;
+    private final Consumer<PartialThinking> partialThinkingHandler;
     private final BiConsumer<Integer, ToolExecutionRequest> partialToolExecutionRequestHandler;
     private final BiConsumer<Integer, ToolExecutionRequest> completeToolExecutionRequestHandler;
     private final Consumer<ToolExecution> toolExecutionHandler;
@@ -63,6 +65,7 @@ class AiServiceStreamingResponseHandler implements StreamingChatResponseHandler 
             AiServiceContext context,
             Object memoryId,
             Consumer<String> partialResponseHandler,
+            Consumer<PartialThinking> partialThinkingHandler,
             BiConsumer<Integer, ToolExecutionRequest> partialToolExecutionRequestHandler,
             BiConsumer<Integer, ToolExecutionRequest> completeToolExecutionRequestHandler,
             Consumer<ToolExecution> toolExecutionHandler,
@@ -80,6 +83,7 @@ class AiServiceStreamingResponseHandler implements StreamingChatResponseHandler 
         this.methodKey = methodKey;
 
         this.partialResponseHandler = ensureNotNull(partialResponseHandler, "partialResponseHandler");
+        this.partialThinkingHandler = partialThinkingHandler;
         this.partialToolExecutionRequestHandler = partialToolExecutionRequestHandler;
         this.completeToolExecutionRequestHandler = completeToolExecutionRequestHandler;
         this.completeResponseHandler = completeResponseHandler;
@@ -102,6 +106,13 @@ class AiServiceStreamingResponseHandler implements StreamingChatResponseHandler 
             responseBuffer.add(partialResponse);
         } else {
             partialResponseHandler.accept(partialResponse);
+        }
+    }
+
+    @Override
+    public void onPartialThinking(PartialThinking partialThinking) {
+        if (partialThinkingHandler != null) {
+            partialThinkingHandler.accept(partialThinking);
         }
     }
 
@@ -144,6 +155,7 @@ class AiServiceStreamingResponseHandler implements StreamingChatResponseHandler 
                     context,
                     memoryId,
                     partialResponseHandler,
+                    partialThinkingHandler,
                     partialToolExecutionRequestHandler,
                     completeToolExecutionRequestHandler,
                     toolExecutionHandler,

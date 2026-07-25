@@ -12,6 +12,7 @@ import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.request.ChatRequestParameters;
 import dev.langchain4j.model.chat.request.DefaultChatRequestParameters;
 import dev.langchain4j.model.chat.response.ChatResponse;
+import dev.langchain4j.model.chat.response.PartialThinking;
 import dev.langchain4j.model.chat.response.StreamingChatResponseHandler;
 import dev.langchain4j.model.openai.internal.OpenAiClient;
 import dev.langchain4j.model.openai.internal.chat.*;
@@ -32,14 +33,15 @@ import static java.time.Duration.ofSeconds;
 /**
  * Represents an OpenAI language model with a chat completion interface, such as gpt-4o-mini and o3.
  * The model's response is streamed token by token and should be handled with {@link StreamingResponseHandler}.
- * You can find description of parameters <a href="https://platform.openai.com/docs/api-reference/chat/create">here</a>.
- */
+        * You can find description of parameters <a href="https://platform.openai.com/docs/api-reference/chat/create">here</a>.
+        */
 public class OpenAiStreamingChatModel implements StreamingChatModel {
 
     private final OpenAiClient client;
     private final OpenAiChatRequestParameters defaultRequestParameters;
     private final Boolean strictJsonSchema;
     private final Boolean strictTools;
+    private final Boolean returnThinking;
     private final List<ChatModelListener> listeners;
 
     public OpenAiStreamingChatModel(OpenAiStreamingChatModelBuilder builder) {
@@ -97,6 +99,7 @@ public class OpenAiStreamingChatModel implements StreamingChatModel {
                 .build();
         this.strictJsonSchema = getOrDefault(builder.strictJsonSchema, false);
         this.strictTools = getOrDefault(builder.strictTools, false);
+        this.returnThinking = getOrDefault(builder.returnThinking, false);
         this.listeners = copy(builder.listeners);
     }
 
@@ -119,7 +122,7 @@ public class OpenAiStreamingChatModel implements StreamingChatModel {
                                 .build())
                         .build();
 
-        OpenAiStreamingResponseBuilder openAiResponseBuilder = new OpenAiStreamingResponseBuilder();
+        OpenAiStreamingResponseBuilder openAiResponseBuilder = new OpenAiStreamingResponseBuilder(returnThinking);
         ToolExecutionRequestBuilder toolBuilder = new ToolExecutionRequestBuilder();
 
         client.chatCompletion(openAiRequest)
@@ -149,9 +152,9 @@ public class OpenAiStreamingChatModel implements StreamingChatModel {
                 .execute();
     }
 
-    private static void handle(ChatCompletionResponse partialResponse,
-                               ToolExecutionRequestBuilder toolBuilder,
-                               StreamingChatResponseHandler handler) {
+    private void handle(ChatCompletionResponse partialResponse,
+                        ToolExecutionRequestBuilder toolBuilder,
+                        StreamingChatResponseHandler handler) {
         if (partialResponse == null) {
             return;
         }
@@ -178,6 +181,10 @@ public class OpenAiStreamingChatModel implements StreamingChatModel {
             } catch (Exception e) {
                 withLoggingExceptions(() -> handler.onError(e));
             }
+        }
+        String reasoningContent = delta.reasoningContent();
+        if (returnThinking && !isNullOrEmpty(reasoningContent)) {
+            handler.onPartialThinking(new PartialThinking(reasoningContent));
         }
         List<ToolCall> toolCalls = delta.toolCalls();
         if (toolCalls != null) {
@@ -260,11 +267,11 @@ public class OpenAiStreamingChatModel implements StreamingChatModel {
         private Map<String, String> metadata;
         private String serviceTier;
         private Duration timeout;
+        private Boolean returnThinking;
         private Boolean logRequests;
         private Boolean logResponses;
         private Map<String, String> customHeaders;
         private List<ChatModelListener> listeners;
-
         public OpenAiStreamingChatModelBuilder() {
             // This is public so it can be extended
         }
@@ -399,7 +406,22 @@ public class OpenAiStreamingChatModel implements StreamingChatModel {
             this.serviceTier = serviceTier;
             return this;
         }
-
+        /**
+         * This setting is intended for <a href="https://api-docs.deepseek.com/guides/reasoning_model">DeepSeek</a>.
+         * <p>
+         * Controls whether to return thinking/reasoning text (if available) inside {@link dev.langchain4j.data.message.AiMessage#thinking()}
+         * and whether to invoke the {@link StreamingChatResponseHandler#onPartialThinking(PartialThinking)}callback.
+         * Please note that this does not enable thinking/reasoning for the LLM;
+         * it only controls whether to parse the {@code reasoning_content} field from the API response
+         * and return it inside the {@link dev.langchain4j.data.message.AiMessage}.
+         * <p>
+         * Disabled by default.
+         * If enabled, the thinking text will be stored within the {@link dev.langchain4j.data.message.AiMessage} and may be persisted.
+         */
+        public OpenAiStreamingChatModelBuilder returnThinking(Boolean returnThinking) {
+            this.returnThinking = returnThinking;
+            return this;
+        }
         public OpenAiStreamingChatModelBuilder timeout(Duration timeout) {
             this.timeout = timeout;
             return this;

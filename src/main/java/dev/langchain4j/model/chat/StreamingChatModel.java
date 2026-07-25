@@ -9,6 +9,7 @@ import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.request.ChatRequestParameters;
 import dev.langchain4j.model.chat.request.DefaultChatRequestParameters;
 import dev.langchain4j.model.chat.response.ChatResponse;
+import dev.langchain4j.model.chat.response.PartialThinking;
 import dev.langchain4j.model.chat.response.StreamingChatResponseHandler;
 
 import java.util.List;
@@ -21,7 +22,8 @@ import static dev.langchain4j.model.chat.ChatModelListenerUtils.onRequest;
 import static dev.langchain4j.model.chat.ChatModelListenerUtils.onResponse;
 
 /**
- * Represents a language model that has a chat API and can stream a response one token at a time.
+ * Represents a language model that has a chat API and can stream a response one
+ * token at a time.
  *
  * @see ChatModel
  */
@@ -30,8 +32,10 @@ public interface StreamingChatModel {
     /**
      * This is the main API to interact with the chat model.
      *
-     * @param chatRequest a {@link ChatRequest}, containing all the inputs to the LLM
-     * @param handler     a {@link StreamingChatResponseHandler} that will handle streaming response from the LLM
+     * @param chatRequest a {@link ChatRequest}, containing all the inputs to the
+     *                    LLM
+     * @param handler     a {@link StreamingChatResponseHandler} that will handle
+     *                    streaming response from the LLM
      */
     default void chat(ChatRequest chatRequest, StreamingChatResponseHandler handler) {
 
@@ -71,6 +75,11 @@ public interface StreamingChatModel {
                 ChatModelListenerUtils.onError(error, finalChatRequest, provider(), attributes, listeners);
                 handler.onError(error);
             }
+            @Override
+            public void onPartialThinking(PartialThinking partialThinking) {
+                handler.onPartialThinking(partialThinking);
+            }
+
         };
 
         onRequest(finalChatRequest, provider(), attributes, listeners);
