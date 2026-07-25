@@ -130,6 +130,11 @@ public class AiCodeGeneratorFacade {
                         sink.next(JSONUtil.toJsonStr(aiResponseMessage));
                     })
                     .onPartialToolExecutionRequest((index, toolExecutionRequest) -> {
+                        if (thinkingStarted[0]) {
+                            thinkingStarted[0] = false;
+                            AiResponseMessage endMsg = new AiResponseMessage("</think>\n\n");
+                            sink.next(JSONUtil.toJsonStr(endMsg));
+                        }
                         ToolRequestMessage toolRequestMessage = new ToolRequestMessage(toolExecutionRequest);
                         sink.next(JSONUtil.toJsonStr(toolRequestMessage));
                     })
@@ -138,6 +143,11 @@ public class AiCodeGeneratorFacade {
                         sink.next(JSONUtil.toJsonStr(toolExecutedMessage));
                     })
                     .onCompleteResponse((ChatResponse response) -> {
+                        if (thinkingStarted[0]) {
+                            thinkingStarted[0] = false;
+                            AiResponseMessage endMsg = new AiResponseMessage("</think>\n\n");
+                            sink.next(JSONUtil.toJsonStr(endMsg));
+                        }
                         sink.complete();
                     })
                     .onError((Throwable error) -> {

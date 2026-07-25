@@ -4,6 +4,7 @@ import com.ZeroStack.ai.tools.*;
 import com.ZeroStack.exception.BusinessException;
 import com.ZeroStack.exception.ErrorCode;
 import com.ZeroStack.model.enums.CodeGenTypeEnum;
+import com.ZeroStack.service.ChatHistoryOriginalService;
 import com.ZeroStack.service.ChatHistoryService;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -37,6 +38,9 @@ public class AiCodeGeneratorServiceFactory {
 
     @Resource
     private ChatHistoryService chatHistoryService;
+
+    @Resource
+    private ChatHistoryOriginalService chatHistoryOriginalService;
 
     @Resource
     private ToolManager toolManager;
@@ -81,34 +85,46 @@ public class AiCodeGeneratorServiceFactory {
      * 创建新的 AI 服务实例
      */
     private AiCodeGeneratorService createAiCodeGeneratorService(long appId, CodeGenTypeEnum codeGenType) {
+        log.info("为 appId: {} 创建新的 AI 服务实例", appId);
+        AiCodeGeneratorService aiCodeGeneratorService;
         // 根据 appId 构建独立的对话记忆
         MessageWindowChatMemory chatMemory = MessageWindowChatMemory
                 .builder()
                 .id(appId)
                 .chatMemoryStore(redisChatMemoryStore)
-                .maxMessages(50)
+                .maxMessages(60)
                 .build();
         // 从数据库加载历史对话到记忆中
         chatHistoryService.loadChatHistoryToMemory(appId, chatMemory, 20);
         // 根据代码生成类型选择不同的模型配置
-        return switch (codeGenType) {
-            // Vue 项目生成使用推理模型
-            case VUE_PROJECT -> AiServices.builder(AiCodeGeneratorService.class)
-                    .streamingChatModel(reasoningStreamingChatModel)
-                    .chatMemoryProvider(memoryId -> chatMemory)
-                    .tools((Object[]) toolManager.getAllTools())
-                    .hallucinatedToolNameStrategy(toolExecutionRequest -> ToolExecutionResultMessage.from(
-                            toolExecutionRequest, "Error: there is no tool called " + toolExecutionRequest.name()))
-                    .build();
-            // HTML 和多文件生成使用默认模型
-            case HTML, MULTI_FILE -> AiServices.builder(AiCodeGeneratorService.class)
-                    .chatModel(chatModel)
-                    .streamingChatModel(openAiStreamingChatModel)
-                    .chatMemory(chatMemory)
-                    .build();
+        switch (codeGenType) {
+            case VUE_PROJECT -> {
+                // 从数据库加载历史对话到缓存中，由于多了工具调用相关信息，加载的最大数量稍微多一些
+                chatHistoryOriginalService.loadOriginalChatHistoryToMemory(appId, chatMemory, 50);
+                // Vue 项目生成使用推理模型
+                aiCodeGeneratorService = AiServices.builder(AiCodeGeneratorService.class)
+                        .streamingChatModel(reasoningStreamingChatModel)
+                        .chatMemoryProvider(memoryId -> chatMemory)
+                        .tools((Object[]) toolManager.getAllTools())
+                        .hallucinatedToolNameStrategy(toolExecutionRequest -> ToolExecutionResultMessage.from(
+                                toolExecutionRequest, "Error: there is no tool called " + toolExecutionRequest.name()
+                        ))
+                        .build();
+            }
+            case HTML, MULTI_FILE -> {
+                // 从数据库加载历史对话到缓存中
+                chatHistoryService.loadChatHistoryToMemory(appId, chatMemory, 20);
+                // HTML 和多文件生成模式使用默认模型
+                aiCodeGeneratorService = AiServices.builder(AiCodeGeneratorService.class)
+                        .chatModel(chatModel)
+                        .streamingChatModel(openAiStreamingChatModel)
+                        .chatMemory(chatMemory)
+                        .build();
+            }
             default -> throw new BusinessException(ErrorCode.SYSTEM_ERROR,
                     "不支持的代码生成类型: " + codeGenType.getValue());
         };
+        return aiCodeGeneratorService;
     }
 
 }
