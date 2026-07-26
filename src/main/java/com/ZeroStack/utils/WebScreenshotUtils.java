@@ -7,7 +7,6 @@ import cn.hutool.core.util.StrUtil;
 import com.ZeroStack.exception.BusinessException;
 import com.ZeroStack.exception.ErrorCode;
 import io.github.bonigarcia.wdm.WebDriverManager;
-import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.OutputType;
@@ -24,7 +23,8 @@ import java.util.UUID;
 @Slf4j
 public class WebScreenshotUtils {
 
-    // TODO: 目前使用 ThreadLocal 可能会导致 Web 容器线程池中的 Chrome 进程长期挂载且占用高内存。后续可考虑引入 RabbitMQ，将截图任务抽离为异步消息消费，配合对象池实现完美解耦与限流。
+    // TODO: 目前使用 ThreadLocal 可能会导致 Web 容器线程池中的 Chrome 进程长期挂载且占用高内存。后续可考虑引入
+    // RabbitMQ，将截图任务抽离为异步消息消费，配合对象池实现完美解耦与限流。
     private static final ThreadLocal<WebDriver> driverThreadLocal = new ThreadLocal<>();
 
     public static WebDriver getDriver() {
@@ -107,7 +107,8 @@ public class WebScreenshotUtils {
             // 禁用扩展
             options.addArguments("--disable-extensions");
             // 设置用户代理
-            options.addArguments("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
+            options.addArguments(
+                    "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
             // 创建驱动
             WebDriver driver = new ChromeDriver(options);
             // 设置页面加载超时
@@ -149,8 +150,7 @@ public class WebScreenshotUtils {
             ImgUtil.compress(
                     FileUtil.file(originalImagePath),
                     FileUtil.file(compressedImagePath),
-                    COMPRESSION_QUALITY
-            );
+                    COMPRESSION_QUALITY);
         } catch (Exception e) {
             log.error("压缩图片失败: {} -> {}", originalImagePath, compressedImagePath, e);
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "压缩图片失败");
@@ -167,10 +167,8 @@ public class WebScreenshotUtils {
             // 创建等待页面加载对象
             WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
             // 等待 document.readyState 为complete
-            wait.until(webDriver ->
-                    ((JavascriptExecutor) webDriver).executeScript("return document.readyState")
-                            .equals("complete")
-            );
+            wait.until(webDriver -> ((JavascriptExecutor) webDriver).executeScript("return document.readyState")
+                    .equals("complete"));
             // 额外等待一段时间，确保动态内容加载完成
             Thread.sleep(2000);
             log.info("页面加载完成");

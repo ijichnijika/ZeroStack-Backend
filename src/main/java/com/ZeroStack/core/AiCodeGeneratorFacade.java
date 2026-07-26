@@ -4,6 +4,7 @@ import cn.hutool.json.JSONUtil;
 import com.ZeroStack.ai.AiCodeGeneratorService;
 import com.ZeroStack.ai.AiCodeGeneratorServiceFactory;
 import com.ZeroStack.ai.AiTitleGeneratorService;
+import com.ZeroStack.ai.AiTitleGeneratorServiceFactory;
 import com.ZeroStack.ai.model.AppTitleResult;
 import com.ZeroStack.ai.model.HtmlCodeResult;
 import com.ZeroStack.ai.model.MultiFileCodeResult;
@@ -15,6 +16,7 @@ import com.ZeroStack.core.saver.CodeFileSaverExecutor;
 import com.ZeroStack.exception.BusinessException;
 import com.ZeroStack.exception.ErrorCode;
 import com.ZeroStack.model.enums.CodeGenTypeEnum;
+import com.ZeroStack.utils.SpringContextUtil;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.service.TokenStream;
 import dev.langchain4j.service.tool.ToolExecution;
@@ -36,7 +38,7 @@ public class AiCodeGeneratorFacade {
     private AiCodeGeneratorServiceFactory aiCodeGeneratorServiceFactory;
 
     @Resource
-    private AiTitleGeneratorService aiTitleGeneratorService;
+    private AiTitleGeneratorServiceFactory aiTitleGeneratorServiceFactory;
 
     /**
      * 统一入口：根据类型生成并保存代码(使用appid)
@@ -80,8 +82,7 @@ public class AiCodeGeneratorFacade {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "生成类型为空");
         }
         // 根据 appId 获取对应的 AI 服务实例
-        AiCodeGeneratorService aiCodeGeneratorService = aiCodeGeneratorServiceFactory.getAiCodeGeneratorService(appId,
-                codeGenTypeEnum);
+        AiCodeGeneratorService aiCodeGeneratorService = aiCodeGeneratorServiceFactory.getAiCodeGeneratorService(appId,codeGenTypeEnum);
         return switch (codeGenTypeEnum) {
             case HTML -> {
                 Flux<String> codeStream = aiCodeGeneratorService.generateHtmlCodeStream(userMessage);
@@ -111,43 +112,38 @@ public class AiCodeGeneratorFacade {
     private Flux<String> processTokenStream(TokenStream tokenStream) {
         return Flux.create(sink -> {
             boolean[] thinkingStarted = {false};
-            tokenStream.onPartialResponse((String partialResponse) -> {
+
+            Runnable closeThinking = () -> {
                 if (thinkingStarted[0]) {
                     thinkingStarted[0] = false;
-                    AiResponseMessage endMsg = new AiResponseMessage("</think>\n\n");
-                    sink.next(JSONUtil.toJsonStr(endMsg));
+                    sink.next(JSONUtil.toJsonStr(new AiResponseMessage("</think>\n\n")));
                 }
-                AiResponseMessage aiResponseMessage = new AiResponseMessage(partialResponse);
-                sink.next(JSONUtil.toJsonStr(aiResponseMessage));
+            };
+
+            Runnable startThinking = () -> {
+                if (!thinkingStarted[0]) {
+                    thinkingStarted[0] = true;
+                    sink.next(JSONUtil.toJsonStr(new AiResponseMessage("<think>\n")));
+                }
+            };
+
+            tokenStream.onPartialResponse((String partialResponse) -> {
+                closeThinking.run();
+                sink.next(JSONUtil.toJsonStr(new AiResponseMessage(partialResponse)));
             })
                     .onPartialThinking((partialThinking) -> {
-                        if (!thinkingStarted[0]) {
-                            thinkingStarted[0] = true;
-                            AiResponseMessage startMsg = new AiResponseMessage("<think>\n");
-                            sink.next(JSONUtil.toJsonStr(startMsg));
-                        }
-                        AiResponseMessage aiResponseMessage = new AiResponseMessage(partialThinking.text());
-                        sink.next(JSONUtil.toJsonStr(aiResponseMessage));
+                        startThinking.run();
+                        sink.next(JSONUtil.toJsonStr(new AiResponseMessage(partialThinking.text())));
                     })
                     .onPartialToolExecutionRequest((index, toolExecutionRequest) -> {
-                        if (thinkingStarted[0]) {
-                            thinkingStarted[0] = false;
-                            AiResponseMessage endMsg = new AiResponseMessage("</think>\n\n");
-                            sink.next(JSONUtil.toJsonStr(endMsg));
-                        }
-                        ToolRequestMessage toolRequestMessage = new ToolRequestMessage(toolExecutionRequest);
-                        sink.next(JSONUtil.toJsonStr(toolRequestMessage));
+                        closeThinking.run();
+                        sink.next(JSONUtil.toJsonStr(new ToolRequestMessage(toolExecutionRequest)));
                     })
                     .onToolExecuted((ToolExecution toolExecution) -> {
-                        ToolExecutedMessage toolExecutedMessage = new ToolExecutedMessage(toolExecution);
-                        sink.next(JSONUtil.toJsonStr(toolExecutedMessage));
+                        sink.next(JSONUtil.toJsonStr(new ToolExecutedMessage(toolExecution)));
                     })
                     .onCompleteResponse((ChatResponse response) -> {
-                        if (thinkingStarted[0]) {
-                            thinkingStarted[0] = false;
-                            AiResponseMessage endMsg = new AiResponseMessage("</think>\n\n");
-                            sink.next(JSONUtil.toJsonStr(endMsg));
-                        }
+                        closeThinking.run();
                         sink.complete();
                     })
                     .onError((Throwable error) -> {
@@ -168,10 +164,8 @@ public class AiCodeGeneratorFacade {
      */
     private Flux<String> processCodeStream(Flux<String> codeStream, CodeGenTypeEnum codeGenType, long appId) {
         StringBuilder codeBuilder = new StringBuilder();
-        return codeStream.doOnNext(chunk -> {
-            // 实时收集代码片段
-            codeBuilder.append(chunk);
-        }).doOnComplete(() -> {
+        // 实时收集代码片段
+        return codeStream.doOnNext(codeBuilder::append).doOnComplete(() -> {
             // 流式返回完成后保存代码
             try {
                 String completeCode = codeBuilder.toString();
@@ -196,6 +190,7 @@ public class AiCodeGeneratorFacade {
         if (userMessage == null || userMessage.trim().isEmpty()) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "提示词不能为空");
         }
+        AiTitleGeneratorService aiTitleGeneratorService = aiTitleGeneratorServiceFactory.aiTitleGeneratorService();
         AppTitleResult result = aiTitleGeneratorService.generateTitle(userMessage);
         String title = null;
         if (result != null) {
