@@ -43,6 +43,7 @@ public class WorkflowApp {
 
         // 初始化 WorkflowContext - 只设置基本信息
         WorkflowContext initialContext = WorkflowContext.builder()
+                .appId(0L)
                 .originalPrompt("创建一个鱼皮的个人博客网站")
                 .currentStep("初始化")
                 .build();

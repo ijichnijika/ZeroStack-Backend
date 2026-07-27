@@ -29,8 +29,12 @@ public class ProjectBuilderNode {
             // 一定是Vue 项目类型：使用 VueProjectBuilder 进行构建
                 try {
                     VueProjectBuilder vueBuilder = SpringContextUtil.getBean(VueProjectBuilder.class);
+                    Long appId = context.getAppId();
+                    if (appId == null) {
+                        appId = 0L;
+                    }
                     // 执行 Vue 项目构建（npm install + npm run build）
-                    boolean buildSuccess = vueBuilder.buildProject(generatedCodeDir);
+                    boolean buildSuccess = vueBuilder.buildProject(generatedCodeDir, appId);
                     if (buildSuccess) {
                         // 构建成功，返回 dist 目录路径
                         buildResultDir = generatedCodeDir + File.separator + "dist";

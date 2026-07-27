@@ -18,6 +18,7 @@ import com.ZeroStack.model.entity.User;
 import com.ZeroStack.model.enums.CodeGenTypeEnum;
 import com.ZeroStack.model.vo.AppVO;
 import com.ZeroStack.service.AppService;
+import com.ZeroStack.service.BuildStatusEmitterService;
 import com.ZeroStack.service.ProjectDownloadService;
 import com.ZeroStack.service.UserService;
 import com.mybatisflex.core.paginate.Page;
@@ -25,8 +26,10 @@ import com.mybatisflex.core.query.QueryWrapper;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -54,7 +57,8 @@ public class AppController {
     @Resource
     private ProjectDownloadService projectDownloadService;
 
-
+    @Resource
+    private BuildStatusEmitterService buildStatusEmitterService;
     /**
      * 调用 AI 生成应用标题，并自动更新数据库
      *
@@ -133,6 +137,20 @@ public class AppController {
         // 调用服务部署应用
         String deployUrl = appService.deployApp(appId, loginUser);
         return ResultUtils.success(deployUrl);
+    }
+
+    /**
+     * 获取应用构建状态流（SSE）
+     *
+     * @param appId 应用 ID
+     * @return SseEmitter
+     */
+    @GetMapping(value = "/build/status/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter streamBuildStatus(@RequestParam Long appId) {
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用ID无效");
+        SseEmitter emitter = new SseEmitter(600000L); // 10 minutes timeout
+        buildStatusEmitterService.addEmitter(appId, emitter);
+        return emitter;
     }
 
     /**
@@ -297,6 +315,11 @@ public class AppController {
      * @return 精选应用列表
      */
     @PostMapping("/good/list/page/vo")
+    @Cacheable(
+            value = "good_app_page",
+            key = "T(com.ZeroStack.utils.CacheKeyUtils).generateKey(#appQueryRequest)",
+            condition = "#appQueryRequest.pageNum <= 10"
+    )
     public BaseResponse<Page<AppVO>> listGoodAppVOByPage(@RequestBody AppQueryRequest appQueryRequest) {
         ThrowUtils.throwIf(appQueryRequest == null, ErrorCode.PARAMS_ERROR);
         // 限制每页最多 20 个

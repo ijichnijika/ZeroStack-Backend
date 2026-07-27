@@ -94,11 +94,12 @@ public class CodeGenWorkflow {
     /**
      * 执行工作流
      */
-    public WorkflowContext executeWorkflow(String originalPrompt) {
+    public WorkflowContext executeWorkflow(Long appId, String originalPrompt) {
         CompiledGraph<MessagesState<String>> workflow = createWorkflow();
 
         // 初始化 WorkflowContext
         WorkflowContext initialContext = WorkflowContext.builder()
+                .appId(appId)
                 .originalPrompt(originalPrompt)
                 .currentStep("初始化")
                 .build();
@@ -127,12 +128,13 @@ public class CodeGenWorkflow {
     /**
      * 执行工作流（Flux 流式输出版本）
      */
-    public Flux<String> executeWorkflowWithFlux(String originalPrompt) {
+    public Flux<String> executeWorkflowWithFlux(Long appId, String originalPrompt) {
         return Flux.create(sink -> {
             Thread.startVirtualThread(() -> {
                 try {
                     CompiledGraph<MessagesState<String>> workflow = createWorkflow();
                     WorkflowContext initialContext = WorkflowContext.builder()
+                            .appId(appId)
                             .originalPrompt(originalPrompt)
                             .currentStep("初始化")
                             .build();

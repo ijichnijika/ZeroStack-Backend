@@ -9,7 +9,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 class CodeGenWorkflowTest {
     @Test
     void testSimpleHtmlWorkflow() {
-        WorkflowContext result = new CodeGenWorkflow().executeWorkflow("创建一个简单的个人主页");
+        WorkflowContext result = new CodeGenWorkflow().executeWorkflow(0L, "创建一个简单的个人主页");
         Assertions.assertNotNull(result);
         System.out.println("生成类型: " + result.getGenerationType());
         System.out.println("生成的代码目录: " + result.getGeneratedCodeDir());

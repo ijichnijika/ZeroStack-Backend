@@ -1,6 +1,8 @@
 package com.ZeroStack.core.builder;
 
 import cn.hutool.core.util.RuntimeUtil;
+import com.ZeroStack.service.BuildStatusEmitterService;
+import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -11,18 +13,30 @@ import java.util.concurrent.TimeUnit;
 @Component
 public class VueProjectBuilder {
 
+    @Resource
+    private BuildStatusEmitterService buildStatusEmitterService;
+
     /**
      * 异步构建项目（不阻塞主流程）
      *
      * @param projectPath 项目路径
+     * @param appId 应用ID
      */
-    public void buildProjectAsync(String projectPath) {
+    public void buildProjectAsync(String projectPath, Long appId) {
         // 在单独的线程中执行构建，避免阻塞主流程
         Thread.ofVirtual().name("vue-builder-" + System.currentTimeMillis()).start(() -> {
             try {
-                buildProject(projectPath);
+                boolean success = buildProject(projectPath, appId);
+                if (success) {
+                    buildStatusEmitterService.sendToEmitter(appId, "done", "Success");
+                } else {
+                    buildStatusEmitterService.sendToEmitter(appId, "done", "Error: 构建失败");
+                }
+                buildStatusEmitterService.completeEmitter(appId);
             } catch (Exception e) {
                 log.error("异步构建 Vue 项目时发生异常: {}", e.getMessage(), e);
+                buildStatusEmitterService.sendToEmitter(appId, "done", "Error: " + e.getMessage());
+                buildStatusEmitterService.completeEmitter(appId);
             }
         });
     }
@@ -31,9 +45,10 @@ public class VueProjectBuilder {
      * 构建 Vue 项目
      *
      * @param projectPath 项目根目录路径
+     * @param appId 应用ID
      * @return 是否构建成功
      */
-    public boolean buildProject(String projectPath) {
+    public boolean buildProject(String projectPath, Long appId) {
         File projectDir = new File(projectPath);
         if (!projectDir.exists() || !projectDir.isDirectory()) {
             log.error("项目目录不存在: {}", projectPath);
@@ -46,12 +61,15 @@ public class VueProjectBuilder {
             return false;
         }
         log.info("开始构建 Vue 项目: {}", projectPath);
+        buildStatusEmitterService.sendToEmitter(appId, "status", "准备构建...");
         // 执行 npm install
+        buildStatusEmitterService.sendToEmitter(appId, "status", "正在安装依赖(npm install)...");
         if (!executeNpmInstall(projectDir)) {
             log.error("npm install 执行失败");
             return false;
         }
         // 执行 npm run build
+        buildStatusEmitterService.sendToEmitter(appId, "status", "正在打包(npm run build)...");
         if (!executeNpmBuild(projectDir)) {
             log.error("npm run build 执行失败");
             return false;
@@ -63,6 +81,7 @@ public class VueProjectBuilder {
             return false;
         }
         log.info("Vue 项目构建成功，dist 目录: {}", distDir.getAbsolutePath());
+        buildStatusEmitterService.sendToEmitter(appId, "status", "构建成功！");
         return true;
     }
 

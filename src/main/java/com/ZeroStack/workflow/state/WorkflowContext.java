@@ -34,6 +34,11 @@ public class WorkflowContext implements Serializable {
     private String currentStep;
 
     /**
+     * 应用ID
+     */
+    private Long appId;
+
+    /**
      * 用户原始输入的提示词
      */
     private String originalPrompt;
