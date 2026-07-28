@@ -15,7 +15,6 @@ import com.mybatisflex.core.query.QueryWrapper;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.beans.factory.annotation.Autowired;
 import com.ZeroStack.service.ChatHistoryService;
 
 import java.time.LocalDateTime;

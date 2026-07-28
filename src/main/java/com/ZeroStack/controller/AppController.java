@@ -15,8 +15,9 @@ import com.ZeroStack.exception.ThrowUtils;
 import com.ZeroStack.model.dto.app.*;
 import com.ZeroStack.model.entity.App;
 import com.ZeroStack.model.entity.User;
-import com.ZeroStack.model.enums.CodeGenTypeEnum;
 import com.ZeroStack.model.vo.AppVO;
+import com.ZeroStack.ratelimiter.annotation.RateLimit;
+import com.ZeroStack.ratelimiter.enums.RateLimitType;
 import com.ZeroStack.service.AppService;
 import com.ZeroStack.service.BuildStatusEmitterService;
 import com.ZeroStack.service.ProjectDownloadService;
@@ -59,6 +60,7 @@ public class AppController {
 
     @Resource
     private BuildStatusEmitterService buildStatusEmitterService;
+
     /**
      * 调用 AI 生成应用标题，并自动更新数据库
      *
@@ -66,6 +68,7 @@ public class AppController {
      * @param request            请求对象
      * @return 更新后的标题字符串
      */
+    @RateLimit(limitType = RateLimitType.USER, rate = 5, rateInterval = 60, message = "AI请求过于频繁，请稍后再试")
     @PostMapping("/chat/gen/title")
     public BaseResponse<String> genAppTitle(@RequestBody AppGenTitleRequest appGenTitleRequest, HttpServletRequest request) {
         ThrowUtils.throwIf(appGenTitleRequest == null, ErrorCode.PARAMS_ERROR);
@@ -90,6 +93,7 @@ public class AppController {
      * @param request 请求对象
      * @return 生成结果流
      */
+    @RateLimit(limitType = RateLimitType.USER, rate = 5, rateInterval = 60, message = "AI请求过于频繁，请稍后再试")
     @GetMapping(value = "/chat/gen/code", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<String>> chatToGenCode(@RequestParam Long appId,
                                                        @RequestParam String message,
@@ -176,7 +180,7 @@ public class AppController {
         }
         // 4. 判断应用是否已经生成了代码/浏览地址
         String codeGenType = app.getCodeGenType();
-        ThrowUtils.throwIf(StrUtil.isBlank(codeGenType), 
+        ThrowUtils.throwIf(StrUtil.isBlank(codeGenType),
                 ErrorCode.OPERATION_ERROR, "应用尚未生成代码或浏览地址，无法下载");
         String sourceDirName = codeGenType + "_" + appId;
         String sourceDirPath = AppConstant.CODE_OUTPUT_ROOT_DIR + File.separator + sourceDirName;
@@ -207,7 +211,6 @@ public class AppController {
         Long appId = appService.createApp(appAddRequest, loginUser);
         return ResultUtils.success(appId);
     }
-
 
 
     /**

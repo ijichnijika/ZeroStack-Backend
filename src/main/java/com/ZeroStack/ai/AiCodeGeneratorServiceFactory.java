@@ -1,5 +1,7 @@
 package com.ZeroStack.ai;
 
+import com.ZeroStack.ai.guardrail.PromptSafetyInputGuardrail;
+import com.ZeroStack.ai.guardrail.RetryOutputGuardrail;
 import com.ZeroStack.ai.tools.*;
 import com.ZeroStack.exception.BusinessException;
 import com.ZeroStack.exception.ErrorCode;
@@ -97,8 +99,9 @@ public class AiCodeGeneratorServiceFactory {
                         .chatMemoryProvider(memoryId -> chatMemory)
                         .tools((Object[]) toolManager.getAllTools())
                         .hallucinatedToolNameStrategy(toolExecutionRequest -> ToolExecutionResultMessage.from(
-                                toolExecutionRequest, "Error: there is no tool called " + toolExecutionRequest.name()
-                        ))
+                                toolExecutionRequest, "Error: there is no tool called " + toolExecutionRequest.name()))
+                        .inputGuardrails(new PromptSafetyInputGuardrail())
+//                        .outputGuardrails(new RetryOutputGuardrail()) 输出护轨注释（为了流式输出）
                         .build();
             }
             case HTML, MULTI_FILE -> {
@@ -109,6 +112,8 @@ public class AiCodeGeneratorServiceFactory {
                 aiCodeGeneratorService = AiServices.builder(AiCodeGeneratorService.class)
                         .streamingChatModel(openAiStreamingChatModel)
                         .chatMemory(chatMemory)
+                        .inputGuardrails(new PromptSafetyInputGuardrail())
+//                        .outputGuardrails(new RetryOutputGuardrail())
                         .build();
             }
             default -> throw new BusinessException(ErrorCode.SYSTEM_ERROR,

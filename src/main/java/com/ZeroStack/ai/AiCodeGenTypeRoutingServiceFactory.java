@@ -1,5 +1,6 @@
 package com.ZeroStack.ai;
 
+import com.ZeroStack.ai.guardrail.PromptSafetyInputGuardrail;
 import com.ZeroStack.utils.SpringContextUtil;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.service.AiServices;
@@ -19,6 +20,7 @@ public class AiCodeGenTypeRoutingServiceFactory {
         ChatModel chatModel = SpringContextUtil.getBean("ChatModelPrototype", ChatModel.class);
         return AiServices.builder(AiCodeGenTypeRoutingService.class)
                 .chatModel(chatModel)
+                .inputGuardrails(new PromptSafetyInputGuardrail())
                 .build();
     }
 
