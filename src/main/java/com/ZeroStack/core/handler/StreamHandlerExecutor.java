@@ -43,4 +43,22 @@ public class StreamHandlerExecutor {
                     new SimpleTextStreamHandler().handle(originFlux, chatHistoryService, appId, loginUser);
         };
     }
+
+    /**
+     * Agent 工作流模式专用流处理器
+     * 处理 CodeGenWorkflow.executeWorkflowWithFlux() 产生的进度消息流
+     *
+     * @param originFlux                 工作流进度消息流
+     * @param chatHistoryService         聊天历史服务
+     * @param chatHistoryOriginalService 原始聊天历史服务
+     * @param appId                      应用ID
+     * @param loginUser                  登录用户
+     * @return 处理后的进度消息流
+     */
+    public Flux<String> doExecuteForAgent(Flux<String> originFlux,
+                                          ChatHistoryService chatHistoryService,
+                                          ChatHistoryOriginalService chatHistoryOriginalService,
+                                          long appId, User loginUser) {
+        return new AgentWorkflowStreamHandler().handle(originFlux, chatHistoryService, chatHistoryOriginalService, appId, loginUser);
+    }
 }

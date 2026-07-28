@@ -97,14 +97,19 @@ public class AppController {
     @GetMapping(value = "/chat/gen/code", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<String>> chatToGenCode(@RequestParam Long appId,
                                                        @RequestParam String message,
+                                                       @RequestParam(defaultValue = "false") Boolean agent,
                                                        HttpServletRequest request) {
         // 参数校验
         ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用ID无效");
         ThrowUtils.throwIf(StrUtil.isBlank(message), ErrorCode.PARAMS_ERROR, "用户消息不能为空");
+        // 长度限制：普通模式 5000 字，agent 模式允许更长以支持详细需求描述
+        int maxLength = Boolean.TRUE.equals(agent) ? 20000 : 5000;
+        ThrowUtils.throwIf(message.length() > maxLength, ErrorCode.PARAMS_ERROR,
+                "消息内容过长，最多支持 " + maxLength + " 字");
         // 获取当前登录用户
         User loginUser = userService.getLoginUser(request);
         // 调用服务生成代码（流式）
-        Flux<String> contentFlux = appService.chatToGenCode(appId, message, loginUser);
+        Flux<String> contentFlux = appService.chatToGenCode(appId, message, loginUser, agent);
         // 转换为 ServerSentEvent 格式
         return contentFlux
                 .map(chunk -> {

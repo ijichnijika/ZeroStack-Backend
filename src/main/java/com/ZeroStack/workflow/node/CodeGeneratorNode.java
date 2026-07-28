@@ -25,17 +25,33 @@ public class CodeGeneratorNode {
         return node_async(state -> {
             WorkflowContext context = WorkflowContext.getContext(state);
             log.info("执行节点: 代码生成");
-
+            // 获取appid
+            Long appId = context.getAppId();
             // 使用增强提示词作为发给 AI 的用户消息(包含原始提示词与报错信息)
             String userMessage = buildUserMessage(context);
             CodeGenTypeEnum generationType = context.getGenerationType();
             // 获取 AI 代码生成外观服务
             AiCodeGeneratorFacade codeGeneratorFacade = SpringContextUtil.getBean(AiCodeGeneratorFacade.class);
             log.info("开始生成代码，类型: {} ({})", generationType.getValue(), generationType.getText());
-            // 先使用固定的 appId (后续再整合到业务中)
-            Long appId = 0L;
             // 调用流式代码生成
             Flux<String> codeStream = codeGeneratorFacade.generateAndSaveCodeStream(userMessage, generationType, appId);
+            // 如果存在外部流消费者，则实时推送到外部（如 Agent 模式下的前端）
+            if (context.getStreamMessageConsumer() != null) {
+                log.info("CodeGeneratorNode: 发现 streamMessageConsumer，开始实时推送代码流");
+                java.util.function.Consumer<String> consumer = context.getStreamMessageConsumer();
+                // 为了防止前端 Markdown 渲染器将 HTML 直接作为 DOM 元素隐藏，我们需要包裹 Markdown 代码块
+                if (generationType == CodeGenTypeEnum.HTML || generationType == CodeGenTypeEnum.MULTI_FILE) {
+                    consumer.accept("```text\n");
+                }
+                codeStream = codeStream.doOnNext(consumer)
+                                       .doOnComplete(() -> {
+                                           if (generationType == CodeGenTypeEnum.HTML || generationType == CodeGenTypeEnum.MULTI_FILE) {
+                                               consumer.accept("\n```\n");
+                                           }
+                                       });
+            } else {
+                log.warn("CodeGeneratorNode: streamMessageConsumer 为空！无法推送流");
+            }
             // 同步等待流式输出完成
             codeStream.blockLast(Duration.ofMinutes(10)); // 最多等待 10 分钟
             // 根据类型设置生成目录

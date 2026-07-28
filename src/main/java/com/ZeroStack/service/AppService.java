@@ -1,5 +1,6 @@
 package com.ZeroStack.service;
 
+import com.ZeroStack.ai.tools.BaseTool;
 import com.ZeroStack.model.dto.app.AppAddRequest;
 import com.ZeroStack.model.dto.app.AppQueryRequest;
 import com.ZeroStack.model.entity.User;
@@ -24,9 +25,10 @@ public interface AppService extends IService<App> {
      * @param appId     应用id
      * @param message   消息
      * @param loginUser 登录用户
+     * @param agent    是否启用agent模式
      * @return 流式生成的应用
      */
-    Flux<String> chatToGenCode(Long appId, String message, User loginUser);
+    Flux<String> chatToGenCode(Long appId, String message, User loginUser, Boolean agent);
 
     /**
      * 生成应用标题并更新数据库

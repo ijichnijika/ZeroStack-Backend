@@ -13,7 +13,7 @@ import org.springframework.context.annotation.Configuration;
 public class AiCodeGenTypeRoutingServiceFactory {
 
     /**
-     * 创建AI代码生成类型路由服务实例
+     * 创建AI代码生成类型路由服务实例（用户接口专用，含输入护轨）
      */
     public AiCodeGenTypeRoutingService createAiCodeGenTypeRoutingService() {
         // 动态获取多例的路由 ChatModel，支持并发
@@ -21,6 +21,17 @@ public class AiCodeGenTypeRoutingServiceFactory {
         return AiServices.builder(AiCodeGenTypeRoutingService.class)
                 .chatModel(chatModel)
                 .inputGuardrails(new PromptSafetyInputGuardrail())
+                .build();
+    }
+
+    /**
+     * 创建AI代码生成类型路由服务实例（工作流内部专用，不含输入护轨）
+     * 工作流内部调用属于受信场景，不需要对输入进行护轨保护
+     */
+    public AiCodeGenTypeRoutingService createForWorkflow() {
+        ChatModel chatModel = SpringContextUtil.getBean("ChatModelPrototype", ChatModel.class);
+        return AiServices.builder(AiCodeGenTypeRoutingService.class)
+                .chatModel(chatModel)
                 .build();
     }
 

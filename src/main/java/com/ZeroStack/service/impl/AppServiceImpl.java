@@ -24,6 +24,7 @@ import com.ZeroStack.model.enums.CodeGenTypeEnum;
 import com.ZeroStack.model.vo.AppVO;
 import com.ZeroStack.model.vo.UserVO;
 import com.ZeroStack.service.*;
+import com.ZeroStack.workflow.CodeGenWorkflow;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
 import com.ZeroStack.model.entity.App;
@@ -102,7 +103,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
     }
 
     @Override
-    public Flux<String> chatToGenCode(Long appId, String message, User loginUser) {
+    public Flux<String> chatToGenCode(Long appId, String message, User loginUser, Boolean agent) {
         // 1. 参数校验
         ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用 ID 不能为空");
         ThrowUtils.throwIf(StrUtil.isBlank(message), ErrorCode.PARAMS_ERROR, "用户消息不能为空");
@@ -123,9 +124,17 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         chatHistoryService.addChatMessage(appId, message, ChatHistoryMessageTypeEnum.USER.getValue(), loginUser.getId());
         chatHistoryOriginalService.addOriginalChatMessage(appId, message, ChatHistoryMessageTypeEnum.USER.getValue(), loginUser.getId());
         // 6. 调用 AI 生成代码（流式）
+        if (agent) {
+            // Agent 模式：通过 LangGraph4j 工作流生成代码，使用专用流处理器
+            Flux<String> workflowFlux = new CodeGenWorkflow().executeWorkflowWithFlux(appId, message);
+            return streamHandlerExecutor.doExecuteForAgent(workflowFlux, chatHistoryService,
+                    chatHistoryOriginalService, appId, loginUser);
+        }
+        // 普通模式：直接调用 AI 代码生成服务
         Flux<String> codeStream = aiCodeGeneratorFacade.generateAndSaveCodeStream(message, codeGenTypeEnum, appId);
         // 7. 收集AI响应内容并在完成后记录到对话历史
         return streamHandlerExecutor.doExecute(codeStream, chatHistoryService, chatHistoryOriginalService, appId, loginUser, codeGenTypeEnum);
+
     }
 
     @Override

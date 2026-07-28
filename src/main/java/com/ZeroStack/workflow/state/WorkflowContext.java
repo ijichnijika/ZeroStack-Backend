@@ -13,6 +13,8 @@ import java.io.Serial;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 /**
  * 工作流上下文 - 存储所有状态信息
@@ -82,6 +84,12 @@ public class WorkflowContext implements Serializable {
      * 错误信息
      */
     private String errorMessage;
+
+    /**
+     * 用于将流式消息回调推送到外部流的消费者
+     */
+    @JsonIgnore
+    private transient Consumer<String> streamMessageConsumer;
 
 
 
