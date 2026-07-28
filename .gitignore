@@ -4,6 +4,8 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 application-local.yaml
+application-local.yml
+application-ai.example.yml
 tmp
 
 ### STS ###
