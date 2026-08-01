@@ -1,11 +1,10 @@
 package com.ZeroStack.workflow.node;
 
 import com.ZeroStack.workflow.ai.ImageCollectionPlanService;
-import com.ZeroStack.workflow.ai.ImageCollectionService;
 import com.ZeroStack.workflow.model.ImageCollectionPlan;
 import com.ZeroStack.workflow.model.ImageResource;
 import com.ZeroStack.workflow.state.WorkflowContext;
-import com.ZeroStack.utils.SpringContextUtil;
+import com.ZeroStack.utils.SpringContextUtils;
 import com.ZeroStack.workflow.tools.ImageSearchTool;
 import com.ZeroStack.workflow.tools.LogoGeneratorTool;
 import com.ZeroStack.workflow.tools.MermaidDiagramTool;
@@ -35,7 +34,7 @@ public class ImageCollectorNode {
 
             try {
                 // 第一步：获取图片收集计划
-                ImageCollectionPlanService planService = SpringContextUtil.getBean(ImageCollectionPlanService.class);
+                ImageCollectionPlanService planService = SpringContextUtils.getBean(ImageCollectionPlanService.class);
                 ImageCollectionPlan plan = planService.planImageCollection(originalPrompt);
                 log.info("获取到图片收集计划，开始并发执行");
 
@@ -43,7 +42,7 @@ public class ImageCollectorNode {
                 List<CompletableFuture<List<ImageResource>>> futures = new ArrayList<>();
                 // 并发执行内容图片搜索
                 if (plan.getContentImageTasks() != null) {
-                    ImageSearchTool imageSearchTool = SpringContextUtil.getBean(ImageSearchTool.class);
+                    ImageSearchTool imageSearchTool = SpringContextUtils.getBean(ImageSearchTool.class);
                     for (ImageCollectionPlan.ImageSearchTask task : plan.getContentImageTasks()) {
                         futures.add(CompletableFuture.supplyAsync(() ->
                                 imageSearchTool.searchContentImages(task.query())));
@@ -51,7 +50,7 @@ public class ImageCollectorNode {
                 }
                 // 并发执行插画图片搜索
                 if (plan.getIllustrationTasks() != null) {
-                    UndrawIllustrationTool illustrationTool = SpringContextUtil.getBean(UndrawIllustrationTool.class);
+                    UndrawIllustrationTool illustrationTool = SpringContextUtils.getBean(UndrawIllustrationTool.class);
                     for (ImageCollectionPlan.IllustrationTask task : plan.getIllustrationTasks()) {
                         futures.add(CompletableFuture.supplyAsync(() ->
                                 illustrationTool.searchIllustrations(task.query())));
@@ -59,7 +58,7 @@ public class ImageCollectorNode {
                 }
                 // 并发执行架构图生成
                 if (plan.getDiagramTasks() != null) {
-                    MermaidDiagramTool diagramTool = SpringContextUtil.getBean(MermaidDiagramTool.class);
+                    MermaidDiagramTool diagramTool = SpringContextUtils.getBean(MermaidDiagramTool.class);
                     for (ImageCollectionPlan.DiagramTask task : plan.getDiagramTasks()) {
                         futures.add(CompletableFuture.supplyAsync(() ->
                                 diagramTool.generateMermaidDiagram(task.mermaidCode(), task.description())));
@@ -67,7 +66,7 @@ public class ImageCollectorNode {
                 }
                 // 并发执行Logo生成
                 if (plan.getLogoTasks() != null) {
-                    LogoGeneratorTool logoTool = SpringContextUtil.getBean(LogoGeneratorTool.class);
+                    LogoGeneratorTool logoTool = SpringContextUtils.getBean(LogoGeneratorTool.class);
                     for (ImageCollectionPlan.LogoTask task : plan.getLogoTasks()) {
                         futures.add(CompletableFuture.supplyAsync(() ->
                                 logoTool.generateLogos(task.description())));

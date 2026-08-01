@@ -5,7 +5,7 @@ import com.ZeroStack.exception.BusinessException;
 import com.ZeroStack.exception.ErrorCode;
 import com.ZeroStack.workflow.state.WorkflowContext;
 import com.ZeroStack.model.enums.CodeGenTypeEnum;
-import com.ZeroStack.utils.SpringContextUtil;
+import com.ZeroStack.utils.SpringContextUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.bsc.langgraph4j.action.AsyncNodeAction;
 import org.bsc.langgraph4j.prebuilt.MessagesState;
@@ -28,7 +28,7 @@ public class ProjectBuilderNode {
             String buildResultDir;
             // 一定是Vue 项目类型：使用 VueProjectBuilder 进行构建
                 try {
-                    VueProjectBuilder vueBuilder = SpringContextUtil.getBean(VueProjectBuilder.class);
+                    VueProjectBuilder vueBuilder = SpringContextUtils.getBean(VueProjectBuilder.class);
                     Long appId = context.getAppId();
                     if (appId == null) {
                         appId = 0L;

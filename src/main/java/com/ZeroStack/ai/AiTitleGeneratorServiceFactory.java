@@ -1,7 +1,7 @@
 package com.ZeroStack.ai;
 
 import com.ZeroStack.ai.guardrail.PromptSafetyInputGuardrail;
-import com.ZeroStack.utils.SpringContextUtil;
+import com.ZeroStack.utils.SpringContextUtils;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.service.AiServices;
 import org.springframework.context.annotation.Bean;
@@ -15,7 +15,7 @@ public class AiTitleGeneratorServiceFactory {
      */
     public AiTitleGeneratorService createAiTitleGeneratorService() {
         // 动态获取多例的路由 ChatModel，支持并发
-        ChatModel chatModel = SpringContextUtil.getBean("ChatModelPrototype", ChatModel.class);
+        ChatModel chatModel = SpringContextUtils.getBean("ChatModelPrototype", ChatModel.class);
         return AiServices.builder(AiTitleGeneratorService.class)
                 .chatModel(chatModel)
                 .inputGuardrails(new PromptSafetyInputGuardrail())

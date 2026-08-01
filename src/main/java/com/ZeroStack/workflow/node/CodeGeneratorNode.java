@@ -5,7 +5,7 @@ import com.ZeroStack.core.AiCodeGeneratorFacade;
 import com.ZeroStack.workflow.model.QualityResult;
 import com.ZeroStack.workflow.state.WorkflowContext;
 import com.ZeroStack.model.enums.CodeGenTypeEnum;
-import com.ZeroStack.utils.SpringContextUtil;
+import com.ZeroStack.utils.SpringContextUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.bsc.langgraph4j.action.AsyncNodeAction;
 import org.bsc.langgraph4j.prebuilt.MessagesState;
@@ -31,7 +31,7 @@ public class CodeGeneratorNode {
             String userMessage = buildUserMessage(context);
             CodeGenTypeEnum generationType = context.getGenerationType();
             // 获取 AI 代码生成外观服务
-            AiCodeGeneratorFacade codeGeneratorFacade = SpringContextUtil.getBean(AiCodeGeneratorFacade.class);
+            AiCodeGeneratorFacade codeGeneratorFacade = SpringContextUtils.getBean(AiCodeGeneratorFacade.class);
             log.info("开始生成代码，类型: {} ({})", generationType.getValue(), generationType.getText());
             // 调用流式代码生成
             Flux<String> codeStream = codeGeneratorFacade.generateAndSaveCodeStream(userMessage, generationType, appId);

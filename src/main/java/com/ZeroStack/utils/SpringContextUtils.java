@@ -10,13 +10,13 @@ import org.springframework.stereotype.Component;
  * 用于在静态方法中获取Spring Bean
  */
 @Component
-public class SpringContextUtil implements ApplicationContextAware {
+public class SpringContextUtils implements ApplicationContextAware {
 
     private static ApplicationContext applicationContext;
 
     @Override
     public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
-        SpringContextUtil.applicationContext = applicationContext;
+        SpringContextUtils.applicationContext = applicationContext;
     }
 
     /**
@@ -39,4 +39,9 @@ public class SpringContextUtil implements ApplicationContextAware {
     public static <T> T getBean(String name, Class<T> clazz) {
         return applicationContext.getBean(name, clazz);
     }
+
+    /**
+     * 显式私有化构造函数
+     */
+    private SpringContextUtils() {}
 }

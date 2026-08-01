@@ -2,7 +2,7 @@ package com.ZeroStack.workflow.node;
 
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.StrUtil;
-import com.ZeroStack.utils.SpringContextUtil;
+import com.ZeroStack.utils.SpringContextUtils;
 import com.ZeroStack.workflow.ai.CodeQualityCheckService;
 import com.ZeroStack.workflow.model.QualityResult;
 import com.ZeroStack.workflow.state.WorkflowContext;
@@ -40,7 +40,7 @@ public class CodeQualityCheckNode {
                             .build();
                 } else {
                     // 2. 调用 AI 进行代码质量检查
-                    CodeQualityCheckService qualityCheckService = SpringContextUtil.getBean(CodeQualityCheckService.class);
+                    CodeQualityCheckService qualityCheckService = SpringContextUtils.getBean(CodeQualityCheckService.class);
                     qualityResult = qualityCheckService.checkCodeQuality(codeContent);
                     log.info("代码质量检查完成 - 是否通过: {}", qualityResult.getIsValid());
                 }

@@ -2,10 +2,12 @@ package com.ZeroStack.utils;
 
 import cn.hutool.crypto.digest.DigestUtil;
 import cn.hutool.json.JSONUtil;
+import lombok.experimental.UtilityClass;
 
 /**
  * 缓存 key 生成工具类
  */
+@UtilityClass
 public class CacheKeyUtils {
 
     /**

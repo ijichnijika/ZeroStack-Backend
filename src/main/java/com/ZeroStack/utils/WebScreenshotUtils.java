@@ -7,6 +7,7 @@ import cn.hutool.core.util.StrUtil;
 import com.ZeroStack.exception.BusinessException;
 import com.ZeroStack.exception.ErrorCode;
 import io.github.bonigarcia.wdm.WebDriverManager;
+import lombok.experimental.UtilityClass;
 import lombok.extern.slf4j.Slf4j;
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.OutputType;
@@ -23,11 +24,11 @@ import java.util.UUID;
 /**
  * 截图工具类
  */
+@UtilityClass
 @Slf4j
 public class WebScreenshotUtils {
 
-    // TODO: 目前使用 ThreadLocal 可能会导致 Web 容器线程池中的 Chrome 进程长期挂载且占用高内存。后续可考虑引入
-    // RabbitMQ，将截图任务抽离为异步消息消费，配合对象池实现完美解耦与限流。
+    // TODO: 目前使用 ThreadLocal 可能会导致 Web 容器线程池中的 Chrome 进程长期挂载且占用高内存。后续可考虑引入RabbitMQ，将截图任务抽离为异步消息消费，配合对象池实现完美解耦与限流。
     private static final ThreadLocal<WebDriver> driverThreadLocal = new ThreadLocal<>();
 
     public static WebDriver getDriver() {

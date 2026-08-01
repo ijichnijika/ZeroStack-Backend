@@ -4,7 +4,7 @@ import com.ZeroStack.ai.AiCodeGenTypeRoutingService;
 import com.ZeroStack.ai.AiCodeGenTypeRoutingServiceFactory;
 import com.ZeroStack.workflow.state.WorkflowContext;
 import com.ZeroStack.model.enums.CodeGenTypeEnum;
-import com.ZeroStack.utils.SpringContextUtil;
+import com.ZeroStack.utils.SpringContextUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.bsc.langgraph4j.action.AsyncNodeAction;
 import org.bsc.langgraph4j.prebuilt.MessagesState;
@@ -25,7 +25,7 @@ public class RouterNode {
             CodeGenTypeEnum generationType;
             try {
                 // 获取AI路由服务工厂，使用工作流专用实例（不含输入护轨）
-                AiCodeGenTypeRoutingServiceFactory factory = SpringContextUtil.getBean(AiCodeGenTypeRoutingServiceFactory.class);
+                AiCodeGenTypeRoutingServiceFactory factory = SpringContextUtils.getBean(AiCodeGenTypeRoutingServiceFactory.class);
                 AiCodeGenTypeRoutingService routingService = factory.createForWorkflow();
                 // 使用完整的原始提示词进行路由（工作流内部受信，无需截断）
                 generationType = routingService.routeCodeGenType(context.getOriginalPrompt());

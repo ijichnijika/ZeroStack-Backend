@@ -15,8 +15,8 @@ import com.ZeroStack.core.parser.CodeParserExecutor;
 import com.ZeroStack.core.saver.CodeFileSaverExecutor;
 import com.ZeroStack.exception.BusinessException;
 import com.ZeroStack.exception.ErrorCode;
+import com.ZeroStack.exception.ThrowUtils;
 import com.ZeroStack.model.enums.CodeGenTypeEnum;
-import com.ZeroStack.utils.SpringContextUtil;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.service.TokenStream;
 import dev.langchain4j.service.tool.ToolExecution;
@@ -26,6 +26,12 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
 import java.io.File;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
+import com.ZeroStack.constant.PresetPromptConstant;
 
 /**
  * AI 代码生成外观类，组合生成和保存功能
@@ -39,6 +45,9 @@ public class AiCodeGeneratorFacade {
 
     @Resource
     private AiTitleGeneratorServiceFactory aiTitleGeneratorServiceFactory;
+
+    @Resource
+    private CacheManager cacheManager;
 
     /**
      * 统一入口：根据类型生成并保存代码(使用appid)
@@ -78,19 +87,24 @@ public class AiCodeGeneratorFacade {
      * @param appId           应用id
      */
     public Flux<String> generateAndSaveCodeStream(String userMessage, CodeGenTypeEnum codeGenTypeEnum, long appId) {
-        if (codeGenTypeEnum == null) {
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "生成类型为空");
+        ThrowUtils.throwIf(codeGenTypeEnum == null, ErrorCode.SYSTEM_ERROR, "生成类型为空");
+
+        // 尝试走预设提示词缓存逻辑
+        Flux<String> cachedStream = tryGetCachedStream(userMessage, codeGenTypeEnum, appId);
+        if (cachedStream != null) {
+            return cachedStream;
         }
+
         // 根据 appId 获取对应的 AI 服务实例
         AiCodeGeneratorService aiCodeGeneratorService = aiCodeGeneratorServiceFactory.getAiCodeGeneratorService(appId,codeGenTypeEnum);
         return switch (codeGenTypeEnum) {
             case HTML -> {
                 Flux<String> codeStream = aiCodeGeneratorService.generateHtmlCodeStream(userMessage);
-                yield processCodeStream(codeStream, CodeGenTypeEnum.HTML, appId);
+                yield processCodeStream(codeStream, CodeGenTypeEnum.HTML, appId, userMessage);
             }
             case MULTI_FILE -> {
                 Flux<String> codeStream = aiCodeGeneratorService.generateMultiFileCodeStream(userMessage);
-                yield processCodeStream(codeStream, CodeGenTypeEnum.MULTI_FILE, appId);
+                yield processCodeStream(codeStream, CodeGenTypeEnum.MULTI_FILE, appId, userMessage);
             }
             case VUE_PROJECT -> {
                 TokenStream TokenStream = aiCodeGeneratorService.generateVueProjectCodeStream(appId, userMessage);
@@ -101,6 +115,36 @@ public class AiCodeGeneratorFacade {
                 throw new BusinessException(ErrorCode.SYSTEM_ERROR, errorMessage);
             }
         };
+    }
+
+    /**
+     * 尝试从缓存获取预设提示词的生成流
+     *
+     * @param userMessage 用户提示词
+     * @param codeGenType 代码生成类型
+     * @param appId       应用id
+     * @return 命中缓存并组装好的 Flux 流，未命中则返回 null
+     */
+    private Flux<String> tryGetCachedStream(String userMessage, CodeGenTypeEnum codeGenType, long appId) {
+        if (!PresetPromptConstant.isPresetPrompt(userMessage)) {
+            return null;
+        }
+        Cache cache = cacheManager.getCache(PresetPromptConstant.CACHE_NAME);
+        String cachedCode = cache != null ? cache.get(userMessage, String.class) : null;
+
+        if (cachedCode == null || cachedCode.trim().isEmpty()) {
+            return null;
+        }
+        
+        log.info("命中预设提示词缓存，跳过大模型调用，直接从缓存加载代码");
+
+        // 切割字符串，每 10 个字符一块，模拟流式输出
+        List<String> chunks = new ArrayList<>();
+        for (int i = 0; i < cachedCode.length(); i += 10) {
+            chunks.add(cachedCode.substring(i, Math.min(cachedCode.length(), i + 10)));
+        }
+        Flux<String> cachedStream = Flux.fromIterable(chunks).delayElements(Duration.ofMillis(30));
+        return processCodeStream(cachedStream, codeGenType, appId, userMessage);
     }
 
     /**
@@ -160,15 +204,24 @@ public class AiCodeGeneratorFacade {
      * @param codeStream  代码流
      * @param codeGenType 代码生成类型
      * @param appId       应用id
+     * @param userMessage 用户提示词（用于缓存判断）
      * @return 流式响应
      */
-    private Flux<String> processCodeStream(Flux<String> codeStream, CodeGenTypeEnum codeGenType, long appId) {
+    private Flux<String> processCodeStream(Flux<String> codeStream, CodeGenTypeEnum codeGenType, long appId, String userMessage) {
         StringBuilder codeBuilder = new StringBuilder();
         // 实时收集代码片段
         return codeStream.doOnNext(codeBuilder::append).doOnComplete(() -> {
             // 流式返回完成后保存代码
             try {
                 String completeCode = codeBuilder.toString();
+                // 新增缓存逻辑
+                if (PresetPromptConstant.isPresetPrompt(userMessage)) {
+                    Cache cache = cacheManager.getCache(PresetPromptConstant.CACHE_NAME);
+                    if (cache != null) {
+                        cache.put(userMessage, completeCode);
+                        log.info("预设提示词代码生成完毕，已自动写入缓存");
+                    }
+                }
                 // 使用执行器解析代码
                 Object parsedResult = CodeParserExecutor.executeParser(completeCode, codeGenType);
                 // 使用执行器保存代码
@@ -179,6 +232,7 @@ public class AiCodeGeneratorFacade {
             }
         });
     }
+
 
     /**
      * 调用 AI 生成应用标题

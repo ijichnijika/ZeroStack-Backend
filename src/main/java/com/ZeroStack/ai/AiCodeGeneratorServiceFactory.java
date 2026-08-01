@@ -1,14 +1,13 @@
 package com.ZeroStack.ai;
 
 import com.ZeroStack.ai.guardrail.PromptSafetyInputGuardrail;
-import com.ZeroStack.ai.guardrail.RetryOutputGuardrail;
 import com.ZeroStack.ai.tools.*;
 import com.ZeroStack.exception.BusinessException;
 import com.ZeroStack.exception.ErrorCode;
 import com.ZeroStack.model.enums.CodeGenTypeEnum;
 import com.ZeroStack.service.ChatHistoryOriginalService;
 import com.ZeroStack.service.ChatHistoryService;
-import com.ZeroStack.utils.SpringContextUtil;
+import com.ZeroStack.utils.SpringContextUtils;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import dev.langchain4j.community.store.memory.chat.redis.RedisChatMemoryStore;
@@ -93,7 +92,7 @@ public class AiCodeGeneratorServiceFactory {
                 // 从数据库加载历史对话到缓存中，由于多了工具调用相关信息，加载的最大数量稍微多一些
                 chatHistoryOriginalService.loadOriginalChatHistoryToMemory(appId, chatMemory, 50);
                 // Vue 项目生成使用推理模型
-                StreamingChatModel reasoningStreamingChatModel = SpringContextUtil.getBean("reasoningStreamingChatModelPrototype", StreamingChatModel.class);
+                StreamingChatModel reasoningStreamingChatModel = SpringContextUtils.getBean("reasoningStreamingChatModelPrototype", StreamingChatModel.class);
                 aiCodeGeneratorService = AiServices.builder(AiCodeGeneratorService.class)
                         .streamingChatModel(reasoningStreamingChatModel)
                         .chatMemoryProvider(memoryId -> chatMemory)
@@ -108,7 +107,7 @@ public class AiCodeGeneratorServiceFactory {
                 // 从数据库加载历史对话到缓存中
                 chatHistoryService.loadChatHistoryToMemory(appId, chatMemory, 20);
                 // HTML 和多文件生成模式使用默认模型
-                StreamingChatModel openAiStreamingChatModel = SpringContextUtil.getBean("streamingChatModelPrototype", StreamingChatModel.class);
+                StreamingChatModel openAiStreamingChatModel = SpringContextUtils.getBean("streamingChatModelPrototype", StreamingChatModel.class);
                 aiCodeGeneratorService = AiServices.builder(AiCodeGeneratorService.class)
                         .streamingChatModel(openAiStreamingChatModel)
                         .chatMemory(chatMemory)
