@@ -42,6 +42,13 @@ public class SimpleTextStreamHandler {
                     // 如果AI回复失败，也要记录错误消息
                     String errorMessage = "AI回复失败: " + error.getMessage();
                     chatHistoryService.addChatMessage(appId, errorMessage, ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId());
+                })
+                .doFinally(signalType -> {
+                    if (signalType == reactor.core.publisher.SignalType.CANCEL) {
+                        String aiResponse = aiResponseBuilder.toString() + "\n\n*[已手动停止生成]*";
+                        chatHistoryService.addChatMessage(appId, aiResponse, ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId());
+                        log.info("简单文本流被手动停止，已记录部分消息到 ChatHistory，appId={}", appId);
+                    }
                 });
     }
 }

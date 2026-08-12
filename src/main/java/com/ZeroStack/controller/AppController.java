@@ -130,6 +130,21 @@ public class AppController {
     }
 
     /**
+     * 停止正在进行的应用聊天生成代码流
+     *
+     * @param appId   应用 ID
+     * @param request 请求对象
+     * @return 停止结果
+     */
+    @PostMapping("/chat/gen/stop")
+    public BaseResponse<Boolean> stopChatGenCode(@RequestParam Long appId, HttpServletRequest request) {
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用ID无效");
+        User loginUser = userService.getLoginUser(request);
+        appService.stopGenerate(appId, loginUser);
+        return ResultUtils.success(true);
+    }
+
+    /**
      * 应用部署
      *
      * @param appDeployRequest 部署请求

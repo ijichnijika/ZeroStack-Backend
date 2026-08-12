@@ -33,6 +33,7 @@ import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Sinks;
 
 import java.io.File;
 import java.io.Serializable;
@@ -41,6 +42,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
@@ -75,6 +77,9 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
 
     @Resource
     private ChatHistoryOriginalService chatHistoryOriginalService;
+
+    // 存储应用生成过程的停止信号
+    private final Map<Long, Sinks.Many<Boolean>> stopSignalMap = new ConcurrentHashMap<>();
 
     @Override
     public String genAppTitle(Long appId, String prompt, User loginUser) {
@@ -123,18 +128,44 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         // 5. 通过校验后，添加用户消息到对话历史
         chatHistoryService.addChatMessage(appId, message, ChatHistoryMessageTypeEnum.USER.getValue(), loginUser.getId());
         chatHistoryOriginalService.addOriginalChatMessage(appId, message, ChatHistoryMessageTypeEnum.USER.getValue(), loginUser.getId());
+        
+        // 创建并保存停止信号 Sink
+        Sinks.Many<Boolean> stopSink = Sinks.many().multicast().directBestEffort();
+        stopSignalMap.put(appId, stopSink);
+
+        Flux<String> originFlux;
         // 6. 调用 AI 生成代码（流式）
         if (agent) {
             // Agent 模式：通过 LangGraph4j 工作流生成代码，使用专用流处理器
             Flux<String> workflowFlux = new CodeGenWorkflow().executeWorkflowWithFlux(appId, message);
-            return streamHandlerExecutor.doExecuteForAgent(workflowFlux, chatHistoryService,
+            originFlux = streamHandlerExecutor.doExecuteForAgent(workflowFlux, chatHistoryService,
                     chatHistoryOriginalService, appId, loginUser);
+        } else {
+            // 普通模式：直接调用 AI 代码生成服务
+            Flux<String> codeStream = aiCodeGeneratorFacade.generateAndSaveCodeStream(message, codeGenTypeEnum, appId);
+            // 7. 收集AI响应内容并在完成后记录到对话历史
+            originFlux = streamHandlerExecutor.doExecute(codeStream, chatHistoryService, chatHistoryOriginalService, appId, loginUser, codeGenTypeEnum);
         }
-        // 普通模式：直接调用 AI 代码生成服务
-        Flux<String> codeStream = aiCodeGeneratorFacade.generateAndSaveCodeStream(message, codeGenTypeEnum, appId);
-        // 7. 收集AI响应内容并在完成后记录到对话历史
-        return streamHandlerExecutor.doExecute(codeStream, chatHistoryService, chatHistoryOriginalService, appId, loginUser, codeGenTypeEnum);
 
+        return originFlux.takeUntilOther(stopSink.asFlux())
+                .doFinally(signalType -> stopSignalMap.remove(appId));
+    }
+
+    @Override
+    public void stopGenerate(Long appId, User loginUser) {
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用 ID 不能为空");
+        App app = this.getById(appId);
+        ThrowUtils.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR, "应用不存在");
+        if (!app.getUserId().equals(loginUser.getId())) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "无权限操作该应用");
+        }
+        Sinks.Many<Boolean> stopSink = stopSignalMap.get(appId);
+        if (stopSink != null) {
+            stopSink.tryEmitNext(true);
+            log.info("用户 {} 停止了应用 {} 的 AI 生成", loginUser.getId(), appId);
+        } else {
+            log.warn("用户 {} 尝试停止应用 {} 的 AI 生成，但该应用当前没有正在生成的任务", loginUser.getId(), appId);
+        }
     }
 
     @Override

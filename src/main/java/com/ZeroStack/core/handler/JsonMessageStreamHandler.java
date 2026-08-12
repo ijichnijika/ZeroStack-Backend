@@ -91,6 +91,22 @@ public class JsonMessageStreamHandler {
                     String errorMessage = "AI回复失败: " + error.getMessage();
                     chatHistoryService.addChatMessage(appId, errorMessage, ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId());
                     chatHistoryOriginalService.addOriginalChatMessage(appId, errorMessage, ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId());
+                })
+                .doFinally(signalType -> {
+                    if (signalType == reactor.core.publisher.SignalType.CANCEL) {
+                        if (!originalChatHistoryList.isEmpty()) {
+                            originalChatHistoryList.forEach(chatHistory -> {
+                                chatHistory.setAppId(appId);
+                                chatHistory.setUserId(loginUser.getId());
+                            });
+                            chatHistoryOriginalService.addOriginalChatMessageBatch(originalChatHistoryList);
+                        }
+                        String aiResponseStr = aiResponseStringBuilder.toString() + "\n\n*[已手动停止生成]*";
+                        chatHistoryOriginalService.addOriginalChatMessage(appId, aiResponseStr, ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId());
+                        String chatHistoryStr = chatHistoryStringBuilder.toString() + "\n\n*[已手动停止生成]*";
+                        chatHistoryService.addChatMessage(appId, chatHistoryStr, ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId());
+                        log.info("JSON消息流被手动停止，已记录部分消息到 ChatHistory，appId={}", appId);
+                    }
                 });
     }
 

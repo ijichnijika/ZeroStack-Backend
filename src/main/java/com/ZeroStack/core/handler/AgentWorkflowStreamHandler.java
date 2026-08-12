@@ -65,6 +65,17 @@ public class AgentWorkflowStreamHandler {
                     chatHistoryOriginalService.addOriginalChatMessage(appId, finalMessage,
                             ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId());
                     log.error("Agent 工作流执行失败，已记录错误消息，appId={}", appId);
+                })
+                .doFinally(signalType -> {
+                    if (signalType == reactor.core.publisher.SignalType.CANCEL) {
+                        markdownBuilder.append("\n\n*[已手动停止生成]*");
+                        String finalMessage = markdownBuilder.toString();
+                        chatHistoryService.addChatMessage(appId, finalMessage,
+                                ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId());
+                        chatHistoryOriginalService.addOriginalChatMessage(appId, finalMessage,
+                                ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId());
+                        log.info("Agent 工作流被手动停止，已记录部分消息到 ChatHistory，appId={}", appId);
+                    }
                 });
     }
 }

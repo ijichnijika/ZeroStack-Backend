@@ -25,6 +25,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
+import java.util.concurrent.atomic.AtomicBoolean;
+
 import java.io.File;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -156,6 +158,8 @@ public class AiCodeGeneratorFacade {
     private Flux<String> processTokenStream(TokenStream tokenStream) {
         return Flux.create(sink -> {
             boolean[] thinkingStarted = {false};
+            AtomicBoolean isCancelled = new AtomicBoolean(false);
+            sink.onCancel(() -> isCancelled.set(true));
 
             Runnable closeThinking = () -> {
                 if (thinkingStarted[0]) {
@@ -172,10 +176,19 @@ public class AiCodeGeneratorFacade {
             };
 
             tokenStream.onPartialResponse((String partialResponse) -> {
-                closeThinking.run();
-                sink.next(JSONUtil.toJsonStr(new AiResponseMessage(partialResponse)));
-            })
+                        if (isCancelled.get()) {
+                            // 强制中断当前线程（通常是 OkHttp 的异步 I/O 线程），避免 LangChain4j 在 1.1-beta7 中吞掉异常导致后台持续接收流
+                            Thread.currentThread().interrupt();
+                            ThrowUtils.throwIf(true, ErrorCode.OPERATION_ERROR, "STREAM_CANCELLED");
+                        }
+                        closeThinking.run();
+                        sink.next(JSONUtil.toJsonStr(new AiResponseMessage(partialResponse)));
+                    })
                     .onPartialThinking((partialThinking) -> {
+                        if (isCancelled.get()) {
+                            Thread.currentThread().interrupt();
+                            ThrowUtils.throwIf(true, ErrorCode.OPERATION_ERROR, "STREAM_CANCELLED");
+                        }
                         startThinking.run();
                         sink.next(JSONUtil.toJsonStr(new AiResponseMessage(partialThinking.text())));
                     })
@@ -191,8 +204,12 @@ public class AiCodeGeneratorFacade {
                         sink.complete();
                     })
                     .onError((Throwable error) -> {
-                        error.printStackTrace();
-                        sink.error(error);
+                        if (error != null && error.getMessage() != null && error.getMessage().contains("STREAM_CANCELLED")) {
+                            sink.complete();
+                        } else {
+                            error.printStackTrace();
+                            sink.error(error);
+                        }
                     })
                     .start();
         });
