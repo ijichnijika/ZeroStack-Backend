@@ -1,9 +1,9 @@
 # ZeroStack Backend (后端服务)
 
-ZeroStack 是一个企业级的、基于大语言模型 (LLM) 驱动的全栈智能代码生成平台后端。
-它采用了最新的 **Java 21** 与 **Spring Boot 3** 架构，深度整合了 **LangChain4j** 与 **Redisson**，不仅支持常规的对话式生成，更引入了高度可定制的 **Agent 工作流引擎** 和 **打字机级别的 SSE 原生流式响应**。
+ZeroStack 是一个探索性的、基于大语言模型 (LLM) 驱动的全栈智能代码生成实验项目后端。
+它采用了最新的 **Java 21** 与 **Spring Boot 3** 架构，整合了 **LangChain4j** 与 **Redisson**，支持对话式代码生成，并引入了基础的 **Agent 工作流引擎** 和 **SSE 原生流式响应**。
 
-本后端项目致力于提供一个高性能、安全、可扩展的 AIGC 平台基座。
+本后端项目旨在作为一个 AIGC 代码生成流程的实验与学习基座。
 
 ---
 
@@ -33,8 +33,8 @@ ZeroStack 是一个企业级的、基于大语言模型 (LLM) 驱动的全栈智
 - **多级缓存对话隔离**：深度结合 **Redis** (分布式层) 与 **Caffeine** (本地 JVM 高速缓存)，针对不同 `AppId` 下的上下文提供了极其严格的隔离边界。防止项目间 AI 语境和聊天历史 (Chat Memory) 发生污染交叉。
 - **聊天历史落库**：对话历史模块不仅存于缓存，更可持久化落入数据库，支持用户随时回溯。
 
-### 5. 企业级防刷与安全护栏 (Rate Limiting & Guardrails)
-- **Redisson 分布式限流**：自定义 `@RateLimit` 切面注解，支持通过 AOP 在任意 Controller 接口上实现基于 `IP`、`用户ID` 或是 `API 全局接口` 的频控，拦截爬虫和恶意调用。
+### 5. 基础防刷与安全护栏 (Rate Limiting & Guardrails)
+- **Redisson 基础限流**：自定义 `@RateLimit` 切面注解，支持通过 AOP 在任意 Controller 接口上实现基于 `IP`、`用户ID` 或是 `API 全局接口` 的频控，拦截恶意调用。
 - **AI 智能护栏 (Guardrails)**：
   - `PromptSafetyInputGuardrail`：前置拦截恶意提示词注入 (Prompt Injection) 及敏感词。
   - `RetryOutputGuardrail`：对于生成的非法 JSON 代码块自动触发重试纠正补偿机制。

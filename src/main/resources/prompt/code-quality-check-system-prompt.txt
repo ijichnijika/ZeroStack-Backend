@@ -24,7 +24,7 @@
 请严格按照以下 JSON 格式返回检查结果。必须返回纯 JSON，不要包含 `json` 或任何 Markdown 标签，不要包含任何多余文字或推理过程。
 
 {
-  "isValid": true,
+  "isValid": true/false,
   "errors": [
     "具体的错误描述1",
     "具体的错误描述2"
