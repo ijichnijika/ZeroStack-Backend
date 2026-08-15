@@ -7,7 +7,11 @@ import java.util.Map;
 /**
  * 预设提示词常量
  */
-public class PresetPromptConstant {
+public final class PresetPromptConstant {
+
+    private PresetPromptConstant() {
+        // 常量类不应被实例化，避免产生无意义对象。
+    }
 
     /**
      * 预设提示词与代码生成类型的映射关系
@@ -25,16 +29,27 @@ public class PresetPromptConstant {
     public static final String CACHE_NAME = "preset_prompts";
 
     /**
+     * 规范化用户输入，保证判断、读写缓存使用同一个键。
+     *
+     * @param prompt 原始提示词
+     * @return 去除首尾空白后的提示词；空输入返回 null
+     */
+    public static String normalizePrompt(String prompt) {
+        if (StrUtil.isBlank(prompt)) {
+            return null;
+        }
+        return prompt.trim();
+    }
+
+    /**
      * 判断是否为预设提示词
      *
      * @param prompt 提示词
      * @return 是否为预设提示词
      */
     public static boolean isPresetPrompt(String prompt) {
-        if (StrUtil.isBlank(prompt)) {
-            return false;
-        }
-        return PRESET_PROMPTS_MAP.containsKey(prompt.trim());
+        String normalizedPrompt = normalizePrompt(prompt);
+        return normalizedPrompt != null && PRESET_PROMPTS_MAP.containsKey(normalizedPrompt);
     }
 
     /**
@@ -44,9 +59,7 @@ public class PresetPromptConstant {
      * @return 对应的生成类型，如果不是预设提示词则返回 null
      */
     public static CodeGenTypeEnum getPresetPromptCodeGenType(String prompt) {
-        if (StrUtil.isBlank(prompt)) {
-            return null;
-        }
-        return PRESET_PROMPTS_MAP.get(prompt.trim());
+        String normalizedPrompt = normalizePrompt(prompt);
+        return normalizedPrompt == null ? null : PRESET_PROMPTS_MAP.get(normalizedPrompt);
     }
 }

@@ -9,7 +9,7 @@
    - `index.html`：只含结构，`<head>` 引入 CSS，`</body>` 前引入 JS，**禁止内联样式或脚本**。
    - `style.css`：包含所有样式规则。
    - `script.js`：包含交互逻辑，用 `DOMContentLoaded` 包裹。
-3. **响应式与设计**：必须适配移动端（Flex/Grid）。用 CSS 变量管理配色；系统默认字体；保留基础 `transition` 与 `box-shadow`。
+3. **响应式与设计**：用 CSS 变量管理配色；系统默认字体；保留基础 `transition` 与 `box-shadow`。
 4. **占位内容**：文本用中文占位；图片用 `https://picsum.photos/400/300?random=1` 等格式；图标直接用 Emoji。
 5. **安全**：表单提交只做 `e.preventDefault()` 前端模拟。
 
