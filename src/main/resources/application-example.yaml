@@ -1,0 +1,87 @@
+##spring:
+#session:
+#  store-type: redis
+#  timeout: 2592000
+#application:
+#  name: ZeroStack-backend
+#datasource:
+#  driver-class-name: com.mysql.cj.jdbc.Driver
+#  url: jdbc:mysql://localhost:3306/ZeroStack
+#  username: root
+#  # 请替换为你的数据库密码
+#  password: your_db_password
+#profiles:
+#  active: local
+#data:
+#  redis:
+#    host: localhost
+#    port: 6379
+#    password:
+#    ttl: 3600
+#    database: 0
+#
+#server:
+#  port: 8080
+#  servlet:
+#    context-path: /api
+#
+## springdoc-openapi
+#springdoc:
+#  group-configs:
+#    - group: 'default'
+#      packages-to-scan: com.ZeroStack.controller
+#knife4j:
+#  enable: true
+#  setting:
+#    language: zh_cn
+#
+## AI 配置
+#langchain4j:
+#  open-ai:
+#    # 基础对话模型配置
+#    chat-model:
+#      base-url: https://api.deepseek.com
+#      # 请替换为你的 API Key
+#      api-key: your_api_key_here
+#      model-name: deepseek-v4-flash
+#      max-tokens: 8196
+#      log-requests: true
+#      log-responses: true
+#    # 流式输出模型配置
+#    streaming-chat-model:
+#      base-url: https://api.deepseek.com
+#      api-key: your_api_key_here
+#      model-name: deepseek-v4-flash
+#      max-tokens: 16384
+#      log-requests: true
+#      log-responses: true
+#    # 推理 AI 模型配置（用于复杂的推理任务）
+#    reasoning-streaming-chat-model:
+#      base-url: https://api.deepseek.com
+#      api-key: your_api_key_here
+#      model-name: deepseek-v4-flash
+#      max-tokens: 32768
+#      temperature: 0.1
+#      log-requests: true
+#      log-responses: true
+#
+## Cos对象存储配置
+#cos:
+#  client:
+#    # 请替换为你的 COS 桶信息和密钥
+#    host: https://your_cos_bucket.cos.ap-region.myqcloud.com
+#    secretId: your_secret_id_here
+#    secretKey: your_secret_key_here
+#    region: ap-region
+#    bucket: your_bucket_name
+#
+## Pexels 图片搜索配置
+#pexels:
+#  # 请替换为你的 Pexels API Key
+#  api-key: your_pexels_api_key_here
+#
+## 阿里云 DashScope 配置
+#dashscope:
+#  # 请替换为你的 DashScope API Key
+#  api-key: your_dashscope_api_key_here
+#  image-model: wanx-v1

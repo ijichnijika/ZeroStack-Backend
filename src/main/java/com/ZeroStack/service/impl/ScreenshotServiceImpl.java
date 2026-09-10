@@ -29,11 +29,17 @@ public class ScreenshotServiceImpl implements ScreenshotService {
         log.info("开始生成网页截图，URL: {}", webUrl);
         // 1. 生成本地截图
         String localScreenshotPath = WebScreenshotUtils.saveWebPageScreenshot(webUrl);
-        ThrowUtils.throwIf(StrUtil.isBlank(localScreenshotPath), ErrorCode.OPERATION_ERROR, "本地截图生成失败");
+        if (StrUtil.isBlank(localScreenshotPath)) {
+            log.warn("未能生成网页本地截图，跳过上传，URL: {}", webUrl);
+            return null;
+        }
         try {
             // 2. 上传到对象存储
             String cosUrl = uploadScreenshotToCos(localScreenshotPath);
-            ThrowUtils.throwIf(StrUtil.isBlank(cosUrl), ErrorCode.OPERATION_ERROR, "截图上传对象存储失败");
+            if (StrUtil.isBlank(cosUrl)) {
+                log.warn("截图上传对象存储未获取到 URL，URL: {}", webUrl);
+                return null;
+            }
             log.info("网页截图生成并上传成功: {} -> {}", webUrl, cosUrl);
             return cosUrl;
         } finally {

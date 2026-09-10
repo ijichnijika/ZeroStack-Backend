@@ -31,13 +31,18 @@ public class WebScreenshotUtils {
     // TODO: 目前使用 ThreadLocal 可能会导致 Web 容器线程池中的 Chrome 进程长期挂载且占用高内存。后续可考虑引入RabbitMQ，将截图任务抽离为异步消息消费，配合对象池实现完美解耦与限流。
     private static final ThreadLocal<WebDriver> driverThreadLocal = new ThreadLocal<>();
 
+    // 记录驱动检查是否已失败，避免无驱动或网络不通时反复发生长耗时重试
+    private static volatile boolean driverCheckFailed = false;
+
     public static WebDriver getDriver() {
         WebDriver driver = driverThreadLocal.get();
         if (driver == null) {
             final int DEFAULT_WIDTH = 1600;
             final int DEFAULT_HEIGHT = 900;
             driver = initChromeDriver(DEFAULT_WIDTH, DEFAULT_HEIGHT);
-            driverThreadLocal.set(driver);
+            if (driver != null) {
+                driverThreadLocal.set(driver);
+            }
         }
         return driver;
     }
@@ -54,6 +59,11 @@ public class WebScreenshotUtils {
             return null;
         }
         try {
+            WebDriver currentDriver = getDriver();
+            if (currentDriver == null) {
+                log.warn("ChromeDriver 未就绪或不可用，跳过网页截图生成");
+                return null;
+            }
             // 创建临时目录
             String rootPath = System.getProperty("user.dir") + File.separator + "tmp" + File.separator + "screenshots"
                     + File.separator + UUID.randomUUID().toString().substring(0, 8);
@@ -62,7 +72,6 @@ public class WebScreenshotUtils {
             final String IMAGE_SUFFIX = ".png";
             // 原始截图文件路径
             String imageSavePath = rootPath + File.separator + RandomUtil.randomNumbers(5) + IMAGE_SUFFIX;
-            WebDriver currentDriver = getDriver();
             // 访问网页
             currentDriver.get(webUrl);
             // 等待页面加载完成
@@ -93,9 +102,37 @@ public class WebScreenshotUtils {
      * @param height 窗口高度
      */
     private static WebDriver initChromeDriver(int width, int height) {
+        if (driverCheckFailed) {
+            return null;
+        }
         try {
-            // 自动管理 ChromeDriver
-            WebDriverManager.chromedriver().setup();
+            // 优先检测本地已存在的 chromedriver 路径，避免在线检测由于网络限制超时
+            String customDriverPath = System.getProperty("webdriver.chrome.driver");
+            if (StrUtil.isBlank(customDriverPath)) {
+                customDriverPath = System.getenv("CHROMEDRIVER_PATH");
+            }
+            if (StrUtil.isBlank(customDriverPath)) {
+                String[] commonPaths = {
+                        "/usr/local/bin/chromedriver",
+                        "/opt/homebrew/bin/chromedriver",
+                        System.getProperty("user.dir") + File.separator + "chromedriver"
+                };
+                for (String path : commonPaths) {
+                    if (FileUtil.exist(path) && FileUtil.file(path).canExecute()) {
+                        customDriverPath = path;
+                        break;
+                    }
+                }
+            }
+
+            if (StrUtil.isNotBlank(customDriverPath)) {
+                System.setProperty("webdriver.chrome.driver", customDriverPath);
+                log.info("使用本地 ChromeDriver: {}", customDriverPath);
+            } else {
+                // 无本地驱动时尝试快速探测，限制单次超时，避免阻塞部署主流程
+                WebDriverManager.chromedriver().timeout(3).setup();
+            }
+
             // 配置 Chrome 选项
             ChromeOptions options = new ChromeOptions();
             // 无头模式
@@ -121,8 +158,9 @@ public class WebScreenshotUtils {
             driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(10));
             return driver;
         } catch (Exception e) {
-            log.error("初始化 Chrome 浏览器失败", e);
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "初始化 Chrome 浏览器失败");
+            driverCheckFailed = true;
+            log.warn("初始化 Chrome 驱动失败，已降级跳过自动截图: {}", e.getMessage());
+            return null;
         }
     }
 

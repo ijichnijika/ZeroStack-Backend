@@ -259,14 +259,19 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
     public void generateAppScreenshotAsync(Long appId, String appUrl) {
         // 使用虚拟线程异步执行
         Thread.startVirtualThread(() -> {
-            // 调用截图服务生成截图并上传
-            String screenshotUrl = screenshotService.generateAndUploadScreenshot(appUrl);
-            // 更新应用封面字段
-            App updateApp = new App();
-            updateApp.setId(appId);
-            updateApp.setCover(screenshotUrl);
-            boolean updated = this.updateById(updateApp);
-            ThrowUtils.throwIf(!updated, ErrorCode.OPERATION_ERROR, "更新应用封面字段失败");
+            try {
+                // 调用截图服务生成截图并上传
+                String screenshotUrl = screenshotService.generateAndUploadScreenshot(appUrl);
+                if (StrUtil.isNotBlank(screenshotUrl)) {
+                    // 仅当成功获取到截图 URL 时更新封面
+                    App updateApp = new App();
+                    updateApp.setId(appId);
+                    updateApp.setCover(screenshotUrl);
+                    this.updateById(updateApp);
+                }
+            } catch (Exception e) {
+                log.warn("异步生成应用封面流程异常，跳过封面更新，appId: {}, 错误信息: {}", appId, e.getMessage());
+            }
         });
     }
 

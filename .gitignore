@@ -5,7 +5,11 @@ target/
 !**/src/test/**/target/
 application-local.yaml
 application-local.yml
+application-prod.yaml
+application-prod.yml
 application-ai.example.yml
+application.yaml
+application.yml
 tmp
 
 ### STS ###
