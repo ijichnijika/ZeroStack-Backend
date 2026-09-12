@@ -33,12 +33,7 @@ public class FileModifyTool extends BaseTool{
             @ToolMemoryId Long appId
     ) {
         try {
-            Path path = Paths.get(relativeFilePath);
-            if (!path.isAbsolute()) {
-                String projectDirName = "vue_project_" + appId;
-                Path projectRoot = Paths.get(AppConstant.CODE_OUTPUT_ROOT_DIR, projectDirName);
-                path = projectRoot.resolve(relativeFilePath);
-            }
+            Path path = resolveProjectPath(appId, relativeFilePath);
             if (!Files.exists(path) || !Files.isRegularFile(path)) {
                 return "错误：文件不存在或不是文件 - " + relativeFilePath;
             }
@@ -75,19 +70,9 @@ public class FileModifyTool extends BaseTool{
         String relativeFilePath = arguments.getStr("relativeFilePath");
         String oldContent = arguments.getStr("oldContent");
         String newContent = arguments.getStr("newContent");
-        // 显示对比内容
-        return String.format("""
-                [工具调用] %s %s
-                
-                替换前：
-                ```
-                %s
-                ```
-                
-                替换后：
-                ```
-                %s
-                ```
-                """, getDisplayName(), relativeFilePath, oldContent, newContent);
+        int oldLines = oldContent != null ? oldContent.split("\n", -1).length : 0;
+        int newLines = newContent != null ? newContent.split("\n", -1).length : 0;
+        String sizeText = newContent != null ? formatSize(newContent.length()) : "0 B";
+        return String.format("[工具调用] %s %s (-%d 行, +%d 行, %s)", getDisplayName(), relativeFilePath, oldLines, newLines, sizeText);
     }
 }

@@ -37,8 +37,15 @@ import reactor.core.publisher.Sinks;
 
 import java.io.File;
 import java.io.Serializable;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -367,6 +374,59 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         }
         // 删除应用
         return super.removeById(id);
+    }
+
+    @Override
+    public Map<String, String> getAppCodeFiles(Long appId) {
+        App app = this.getById(appId);
+        return getAppCodeFiles(app);
+    }
+
+    @Override
+    public Map<String, String> getAppCodeFiles(App app) {
+        if (app == null || app.getId() == null) {
+            return Map.of();
+        }
+        String codeGenType = app.getCodeGenType();
+        if (StrUtil.isBlank(codeGenType)) {
+            return Map.of();
+        }
+        String sourceDirName = codeGenType + "_" + app.getId();
+        File sourceDir = new File(AppConstant.CODE_OUTPUT_ROOT_DIR, sourceDirName);
+        if (!sourceDir.exists() || !sourceDir.isDirectory()) {
+            return Map.of();
+        }
+
+        Map<String, String> resultMap = new HashMap<>();
+        Path rootPath = sourceDir.toPath();
+        try {
+            Files.walkFileTree(rootPath, new SimpleFileVisitor<>() {
+                @Override
+                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
+                    String dirName = dir.getFileName().toString();
+                    if ("node_modules".equals(dirName) || "dist".equals(dirName) || ".git".equals(dirName) || dirName.startsWith(".")) {
+                        return FileVisitResult.SKIP_SUBTREE;
+                    }
+                    return FileVisitResult.CONTINUE;
+                }
+
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+                    if (attrs.isRegularFile() && attrs.size() <= 1024 * 1024) {
+                        String relative = rootPath.relativize(file).toString().replace('\\', '/');
+                        try {
+                            String content = Files.readString(file, StandardCharsets.UTF_8);
+                            resultMap.put(relative, content);
+                        } catch (Exception ignored) {
+                        }
+                    }
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+        } catch (Exception e) {
+            log.error("读取应用代码文件失败, appId={}: {}", app.getId(), e.getMessage());
+        }
+        return resultMap;
     }
 
 }

@@ -17,6 +17,7 @@ import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.SignalType;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -93,7 +94,7 @@ public class JsonMessageStreamHandler {
                     chatHistoryOriginalService.addOriginalChatMessage(appId, errorMessage, ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId());
                 })
                 .doFinally(signalType -> {
-                    if (signalType == reactor.core.publisher.SignalType.CANCEL) {
+                    if (signalType == SignalType.CANCEL) {
                         if (!originalChatHistoryList.isEmpty()) {
                             originalChatHistoryList.forEach(chatHistory -> {
                                 chatHistory.setAppId(appId);
@@ -149,19 +150,29 @@ public class JsonMessageStreamHandler {
                 }
             }
             case TOOL_EXECUTED -> {
-                // 处理工具调用信息
                 processToolExecutionMessage(aiResponseStringBuilder, chunk, originalChatHistoryList);
-                // 格式化处理
                 ToolExecutedMessage toolExecutedMessage = JSONUtil.toBean(chunk, ToolExecutedMessage.class);
                 String toolName = toolExecutedMessage.getName();
                 JSONObject arguments = JSONUtil.parseObj(toolExecutedMessage.getArguments());
-                // 根据工具名称获取工具实例并生成格式化输出信息
                 BaseTool tool = toolManager.getTool(toolName);
-                String result = tool.generateToolExecutedResult(arguments);
-                // 输出前端和要持久化的内容
-                String output = String.format("\n\n%s\n\n", result);
-                chatHistoryStringBuilder.append(output);
-                return output;
+                String summary = tool.generateToolExecutedResult(arguments);
+                String summaryOutput = String.format("\n\n%s\n\n", summary);
+                chatHistoryStringBuilder.append(summaryOutput);
+                if ("writeFile".equals(toolName) || "modifyFile".equals(toolName)) {
+                    JSONObject payload = new JSONObject();
+                    payload.set("type", "code_update");
+                    payload.set("summary", summaryOutput);
+                    payload.set("filePath", arguments.getStr("relativeFilePath"));
+                    payload.set("toolName", toolName);
+                    if ("writeFile".equals(toolName)) {
+                        payload.set("content", arguments.getStr("content"));
+                    } else {
+                        payload.set("oldContent", arguments.getStr("oldContent"));
+                        payload.set("newContent", arguments.getStr("newContent"));
+                    }
+                    return payload.toString();
+                }
+                return summaryOutput;
             }
             default -> {
                 log.error("不支持的消息类型: {}", typeEnum);

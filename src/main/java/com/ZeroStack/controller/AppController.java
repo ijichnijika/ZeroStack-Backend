@@ -15,6 +15,7 @@ import com.ZeroStack.exception.ThrowUtils;
 import com.ZeroStack.model.dto.app.*;
 import com.ZeroStack.model.entity.App;
 import com.ZeroStack.model.entity.User;
+import com.ZeroStack.model.enums.CodeGenTypeEnum;
 import com.ZeroStack.model.vo.AppVO;
 import com.ZeroStack.ratelimiter.annotation.RateLimit;
 import com.ZeroStack.ratelimiter.enums.RateLimitType;
@@ -212,6 +213,28 @@ public class AppController {
         String downloadFileName = String.valueOf(appId);
         // 7. 调用通用下载服务
         projectDownloadService.downloadProjectAsZip(sourceDirPath, downloadFileName, response);
+    }
+
+    /**
+     * 获取应用生成的源码文件映射
+     *
+     * @param appId   应用 ID
+     * @param request 请求对象
+     * @return 源码相对路径到内容的映射
+     */
+    @GetMapping("/code/files/{appId}")
+    public BaseResponse<Map<String, String>> getAppCodeFiles(@PathVariable Long appId, HttpServletRequest request) {
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用ID无效");
+        App app = appService.getById(appId);
+        ThrowUtils.throwIf(app == null, ErrorCode.NOT_FOUND_ERROR, "应用不存在");
+        User loginUser = userService.getLoginUser(request);
+        if (!app.getUserId().equals(loginUser.getId()) && !UserConstant.ADMIN_ROLE.equals(loginUser.getUserRole())) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR, "无权限查看该应用源码");
+        }
+        ThrowUtils.throwIf(!CodeGenTypeEnum.VUE_PROJECT.getValue().equals(app.getCodeGenType()),
+                ErrorCode.PARAMS_ERROR, "仅 Vue 项目支持查看源码");
+        Map<String, String> fileMap = appService.getAppCodeFiles(app);
+        return ResultUtils.success(fileMap);
     }
 
     // region 用户接口

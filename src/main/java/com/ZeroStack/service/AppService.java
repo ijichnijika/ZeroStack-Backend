@@ -1,6 +1,5 @@
 package com.ZeroStack.service;
 
-import com.ZeroStack.ai.tools.BaseTool;
 import com.ZeroStack.model.dto.app.AppAddRequest;
 import com.ZeroStack.model.dto.app.AppQueryRequest;
 import com.ZeroStack.model.entity.User;
@@ -8,10 +7,10 @@ import com.ZeroStack.model.vo.AppVO;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.core.service.IService;
 import com.ZeroStack.model.entity.App;
-import jakarta.servlet.http.HttpServletRequest;
 import reactor.core.publisher.Flux;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 应用 服务层。
@@ -97,4 +96,20 @@ public interface AppService extends IService<App> {
      * @return 应用查询条件
      */
     QueryWrapper getQueryWrapper(AppQueryRequest appQueryRequest);
+
+    /**
+     * 获取应用生成的源码文件集合
+     *
+     * @param appId 应用ID
+     * @return 相对路径到文件内容的映射
+     */
+    Map<String, String> getAppCodeFiles(Long appId);
+
+    /**
+     * 获取应用生成的源码文件集合（避免二次查库）
+     *
+     * @param app 应用对象
+     * @return 相对路径到文件内容的映射
+     */
+    Map<String, String> getAppCodeFiles(App app);
 }

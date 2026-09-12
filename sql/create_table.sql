@@ -30,7 +30,7 @@ create table if not exists app
     id           bigint auto_increment comment 'id' primary key,
     appName      varchar(256)                       null comment '应用名称',
     cover        varchar(512)                       null comment '应用封面',
-    initPrompt   text                               null comment '应用初始化的 prompt',
+    initPrompt   mediumtext                         null comment '应用初始化的 prompt',
     codeGenType  varchar(64)                        null comment '代码生成类型（枚举）',
     deployKey    varchar(64)                        null comment '部署标识',
     deployedTime datetime                           null comment '部署时间',
@@ -49,7 +49,7 @@ create table if not exists app
 create table if not exists chat_history
 (
     id          bigint auto_increment comment 'id' primary key,
-    message     text                               not null comment '消息',
+    message     mediumtext                         not null comment '消息',
     messageType varchar(32)                        not null comment 'user/ai',
     appId       bigint                             not null comment '应用id',
     userId      bigint                             not null comment '创建用户id',
@@ -64,7 +64,7 @@ create table if not exists chat_history
 create table if not exists chat_history_original
 (
     id          bigint auto_increment comment 'id' primary key,
-    message     text                               not null comment '消息',
+    message     mediumtext                         not null comment '消息',
     messageType varchar(32)                        not null comment 'user/ai/toolExecutionRequest/toolExecutionResult',
     appId       bigint                             not null comment '应用id',
     userId      bigint                             not null comment '创建用户id',
