@@ -1,6 +1,7 @@
 package com.ZeroStack.config.aiconfig;
 
 import dev.langchain4j.model.chat.StreamingChatModel;
+import dev.langchain4j.model.openai.OpenAiChatRequestParameters;
 import dev.langchain4j.model.openai.OpenAiStreamingChatModel;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -34,6 +35,9 @@ public class StreamingChatModelConfig {
                 .apiKey(apiKey)
                 .baseUrl(baseUrl)
                 .modelName(modelName)
+                .defaultRequestParameters(OpenAiChatRequestParameters.builder()
+                        .reasoningEffort("none")
+                        .build())
                 .maxTokens(maxTokens)
                 .temperature(temperature)
                 .logRequests(logRequests)
