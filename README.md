@@ -89,3 +89,45 @@ mvn clean package -DskipTests
 java -jar target/backend-0.0.1-SNAPSHOT.jar
 ```
 *API 默认监听 8080 端口。*
+
+## 提示词优化（MVP）
+
+登录后调用 `POST /api/prompt/optimize`，以普通 JSON 返回结果，不创建应用或启动代码生成，不收集或追加图片素材。用户决定是否把结果提交到现有生成接口。
+
+请求示例：
+
+```json
+{
+  "prompt": "帮我做一个咖啡店网站，好看一点",
+  "mode": "create",
+  "context": ""
+}
+```
+
+`prompt` 必填，最多5000字；`mode` 可选，默认 `create`，局部修改使用 `modify`；`context` 是可选页面或选中元素说明，最多2000字。不自动读取应用源码或对话历史。
+
+返回 `BaseResponse`，`data` 包含 `optimizedPrompt`、`assumptions`、`questions`、`requiredDependencies`。无法确定用途时，正文可以为空，`questions` 提示需要补充的信息；应先补充需求再优化。返回正文最多5000字，兼容普通生成接口。
+
+复用现有 `ChatModelPrototype` 配置，无工具、无聊天记忆。输入护轨复用现有注入检测，命中后直接拒绝，不调用模型。输出护轨检查 JSON 结构、正文长度和疑似凭据；仅格式错误允许纠正一次，单次优化最多调用模型两次，网络错误及安全拒绝不重试。正常描述“支付密钥或证书由服务端管理”可以通过。
+
+沿用现有 Redisson 限流切面，使用独立的 `prompt_optimize` 前缀，按用户每60秒最多5次请求，超限在优化前拒绝。原有 `PromptEnhancerNode` 和生成链路保持原状，不自动再次优化。
+
+知识目录默认是 `../docx/references/RAG知识库`（从 `backend` 目录启动）。从其他目录启动或部署时，在本地配置中设置：
+
+```yaml
+prompt:
+  optimization:
+    knowledge-directory: /部署位置/RAG知识库
+```
+
+目录需包含现有的 `知识条目.jsonl` 和 `固定优化原则.json`，不需要复制或重新整理语料。首次优化时加载，加载成功后复用只读快照，资料更新后重启生效。文件缺失或无效时返回优化功能错误，不影响其他功能启动。
+
+仅检索 `retrievalEligible=true` 且非待复核的条目。用户本次输入需完整匹配标题主题、标签或检索别名；英文别名按词边界匹配。正文不参与候选准入，页面背景只调整已命中条目的排序。局部修改排除整站场景、配色、风格与布局资料；描述了按钮、表单等对象时，参考也需匹配该对象。最多5条参考、1条案例，总参考长度最多8000字符。
+
+固定原则和两个范围约束单独携带，正文、适用条件和边界一起作为参考。`rawFields`、`technicalFields` 不进入索引或模型上下文，别名只用于检索。无可靠匹配时只使用固定原则，不凑满参考数量。此方案优先减少误匹配，未收录的同义表达可能漏检，暂不引入向量库或额外模型检索。
+
+本地测试不调用真实模型、不依赖数据库或 Redis，在 `backend` 目录执行：
+
+```bash
+mvn -Dtest=PromptKnowledgeBaseTest,PromptOptimizationServiceImplTest,AiPromptOptimizationServiceTest,PromptControllerTest,PromptOptimizationRateLimitTest test
+```
