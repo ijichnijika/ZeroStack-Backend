@@ -1,6 +1,7 @@
 package com.ZeroStack.core.prompt;
 
 import com.ZeroStack.exception.BusinessException;
+import com.ZeroStack.constant.PresetPromptConstant;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -26,7 +27,7 @@ class PromptKnowledgeBaseTest {
         Path source = Path.of("../docx/references/RAG知识库");
         PromptKnowledgeBase knowledgeBase = knowledgeBase(source);
         JsonNode references = knowledgeBase.retrieve("做个订单管理后台", "create", "");
-        // SCENE-04 没有标签，也应通过标题和正文命中。
+        // SCENE-04 没有标签，也应通过标题命中。
         assertTrue(references.toString().contains("SCENE-04"));
         assertTrue(references.size() <= 5);
         Set<String> eligibleIds = new HashSet<>();
@@ -91,6 +92,56 @@ class PromptKnowledgeBaseTest {
         PromptKnowledgeBase knowledgeBase = knowledgeBase(Path.of("../docx/references/RAG知识库"));
         JsonNode references = knowledgeBase.retrieve("做一个在线课程网站，推荐配色", "create", "");
         assertTrue(references.toString().contains("UUPM-COLORS-043"));
+    }
+
+    @Test
+    void fivePresetsRetrieveRelevantDesignInsteadOfBroadSceneTags() {
+        PromptKnowledgeBase knowledgeBase = knowledgeBase(Path.of("../docx/references/RAG知识库"));
+        for (String prompt : PresetPromptConstant.PRESET_PROMPTS_MAP.keySet()) {
+            JsonNode references = knowledgeBase.retrieve(prompt, "create", "");
+            String expected = prompt.contains("技术博客") ? "UUPM-PRODUCTS-067"
+                    : prompt.contains("插画师") ? "UUPM-PRODUCTS-011"
+                    : prompt.contains("数据看板") ? "UUPM-PRODUCTS-007"
+                    : prompt.contains("降噪耳机") ? "UUPM-LANDING-001" : "UUPM-PRODUCTS-016";
+            assertTrue(references.toString().contains(expected), prompt + " 缺少对应设计参考");
+            assertTrue(references.size() <= 5);
+            assertFalse(references.toString().contains("UUPM-PRODUCTS-006"), "作品集不应命中金融看板");
+            assertFalse(references.toString().contains("UUPM-PRODUCTS-126"), "筛选不应命中照片编辑");
+        }
+    }
+
+    @Test
+    void dashboardIncludesCoherentDesignReferencesWithoutAddingAdvancedFeatures() {
+        PromptKnowledgeBase knowledgeBase = knowledgeBase(Path.of("../docx/references/RAG知识库"));
+        String prompt = PresetPromptConstant.PRESET_PROMPTS_MAP.keySet().stream()
+                .filter(text -> text.contains("数据看板")).findFirst().orElseThrow();
+        String references = knowledgeBase.retrieve(prompt, "create", "").toString();
+        for (String id : Set.of("UUPM-PRODUCTS-007", "UUPM-COLORS-007", "UUPM-STYLES-028", "UUPM-TYPOGRAPHY-042")) {
+            assertTrue(references.contains(id), "缺少 " + id);
+        }
+        for (String id : Set.of("UUPM-STYLES-005", "UUPM-STYLES-032", "UUPM-STYLES-034", "UUPM-STYLES-064")) {
+            assertFalse(references.contains(id), "不应因泛词加入 " + id);
+        }
+    }
+
+    @Test
+    void followsOnlyEligibleDesignRelationsWithoutLeakingIndexFields() throws Exception {
+        writeFixture("""
+                {"id":"scene","type":"scene","title":"场景｜咖啡店","content":"菜单展示","retrievalEligible":true,"relatedIds":["palette","disabled","pending"]}
+                {"id":"palette","type":"palette","title":"配色｜暖色","content":"奶油色背景","retrievalEligible":true}
+                {"id":"disabled","type":"palette","title":"配色｜停用","content":"DISABLED_SENTINEL","retrievalEligible":false}
+                {"id":"pending","type":"reasoning","title":"场景取舍｜待审","content":"PENDING_SENTINEL","retrievalEligible":true,"reviewStatus":"pending_recheck"}
+                """);
+        PromptKnowledgeBase knowledgeBase = knowledgeBase(directory);
+        JsonNode references = knowledgeBase.retrieve("做个咖啡店网站", "create", "");
+        assertTrue(references.toString().contains("奶油色背景"));
+        assertFalse(references.toString().contains("SENTINEL"));
+        for (JsonNode reference : references) {
+            assertFalse(reference.has("relatedIds"));
+            assertFalse(reference.has("searchAliases"));
+        }
+        assertTrue(knowledgeBase.retrieve("做个网站", "create", "咖啡店").isEmpty());
+        assertTrue(knowledgeBase.retrieve("咖啡店", "modify", "").isEmpty());
     }
 
     @Test

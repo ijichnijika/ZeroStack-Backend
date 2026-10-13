@@ -22,6 +22,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -35,6 +36,12 @@ public class PromptKnowledgeBase {
     private static final List<String> CONTEXT_FIELDS = List.of("id", "type", "title", "content", "tags",
             "appliesTo", "boundary", "promptExample", "sourceUrls", "version");
     private static final Set<String> FIXED_IDS = Set.of("SCOPE-01", "SCOPE-02");
+    private static final Set<String> DESIGN_TYPES = Set.of("scene", "palette", "style", "typography", "layout", "reasoning");
+    private static final Set<String> TOPIC_TYPES = Set.of("scene", "reasoning", "palette", "style");
+    // 只补充明确的网页设计同义表达，不靠业务词猜测页面用途。
+    private static final Map<String, String> QUERY_ALIASES = Map.of(
+            "待办清单", "效率工具", "产品落地页", "产品介绍与简单营销页",
+            "信息密度高", "高密度看板", "咖啡店", "咖啡馆");
     private static final Set<String> MODIFICATION_TYPES = Set.of("rule", "upstream_rule", "typography", "motion",
             "official_pattern_case", "authored_prompt_case");
     private static final Set<String> MODIFICATION_TARGETS = Set.of("按钮", "表单", "输入框", "导航", "表格",
@@ -57,6 +64,15 @@ public class PromptKnowledgeBase {
     }
 
     public ArrayNode retrieve(String prompt, String mode, String context) {
+        boolean creating = "create".equals(mode);
+        String query = prompt;
+        if (creating) {
+            for (Map.Entry<String, String> alias : QUERY_ALIASES.entrySet()) {
+                if (prompt.contains(alias.getKey())) {
+                    query += " " + alias.getValue();
+                }
+            }
+        }
         List<ScoredEntry> matches = new ArrayList<>();
         List<String> targets = MODIFICATION_TARGETS.stream().filter(prompt::contains).toList();
         for (JsonNode entry : getSnapshot().entries()) {
@@ -76,34 +92,70 @@ public class PromptKnowledgeBase {
                 continue;
             }
             // 用户本次输入必须有完整关键词命中，背景说明只调整已准入条目的排序。
-            int promptScore = score(entry, prompt);
+            int promptScore = score(entry, query);
             if (promptScore > 0) {
                 matches.add(new ScoredEntry(entry, 2 * promptScore + score(entry, context)));
             }
         }
-        matches.sort(Comparator.comparing((ScoredEntry match) ->
+        Comparator<ScoredEntry> relevance = Comparator.comparing((ScoredEntry match) ->
                         !"authored_prompt_case".equals(match.entry().path("type").asText()))
                 .thenComparing(Comparator.comparingInt(ScoredEntry::score).reversed())
-                .thenComparing(match -> match.entry().path("id").asText()));
+                .thenComparing(match -> match.entry().path("id").asText());
+        matches.sort(relevance);
+        if (creating) {
+            // 使用最相关场景已有的关联关系，单跳补充配色与取舍；不启用待审条目。
+            ScoredEntry scene = matches.stream()
+                    .filter(match -> "scene".equals(match.entry().path("type").asText())).findFirst().orElse(null);
+            if (scene != null) {
+                Set<String> relatedIds = new HashSet<>();
+                scene.entry().path("relatedIds").forEach(id -> relatedIds.add(id.asText()));
+                for (JsonNode entry : getSnapshot().entries()) {
+                    if (relatedIds.contains(entry.path("id").asText())
+                            && Set.of("palette", "reasoning").contains(entry.path("type").asText())) {
+                        matches.removeIf(match -> match.entry().path("id").equals(entry.path("id")));
+                        matches.add(new ScoredEntry(entry, scene.score() + 1));
+                    }
+                }
+            }
+            matches.sort(Comparator.comparingInt((ScoredEntry match) -> designPriority(match.entry()))
+                    .thenComparing(relevance));
+        }
         ArrayNode result = objectMapper.createArrayNode();
         int length = 0;
         boolean hasCase = false;
+        Set<String> selectedDesignTypes = new HashSet<>();
         for (ScoredEntry match : matches) {
             JsonNode entry = match.entry();
-            boolean caseEntry = entry.path("type").asText().endsWith("_case");
+            String type = entry.path("type").asText();
+            boolean caseEntry = type.endsWith("_case");
             JsonNode reference = project(entry);
             int entryLength = reference.toString().length();
-            if ((caseEntry && hasCase) || length + entryLength > 8000) {
+            if ((caseEntry && hasCase) || length + entryLength > 8000
+                    || (creating && DESIGN_TYPES.contains(type) && selectedDesignTypes.contains(type))) {
                 continue;
             }
             result.add(reference);
             length += entryLength;
             hasCase |= caseEntry;
+            selectedDesignTypes.add(type);
             if (result.size() == 5) {
                 break;
             }
         }
         return result;
+    }
+
+    private int designPriority(JsonNode entry) {
+        return switch (entry.path("type").asText()) {
+            case "authored_prompt_case" -> 0;
+            case "scene" -> 1;
+            case "palette" -> 2;
+            case "style" -> 3;
+            case "typography" -> 4;
+            case "layout" -> 5;
+            case "reasoning" -> 6;
+            default -> 7;
+        };
     }
 
     private int score(JsonNode entry, String query) {
@@ -115,7 +167,13 @@ public class PromptKnowledgeBase {
             keywords.add(part.replaceAll("(页面|网站|界面)$", ""));
         }
         for (JsonNode tag : entry.path("tags")) {
-            keywords.add(tag.asText());
+            for (String part : tag.asText().split("[、与/（）()]")) {
+                // 场景和风格的用途标签不是其主题，如金融看板的“作品集”、三维风格的“电商”。
+                if (!TOPIC_TYPES.contains(entry.path("type").asText())
+                        || topic.toLowerCase(Locale.ROOT).contains(part.toLowerCase(Locale.ROOT))) {
+                    keywords.add(part);
+                }
+            }
         }
         for (String alias : entry.path("searchAliases").asText().split("[,;/、|&]")) {
             keywords.add(alias);
@@ -131,7 +189,7 @@ public class PromptKnowledgeBase {
                     : Pattern.compile("(?<![\\p{L}\\p{N}])" + Pattern.quote(text) + "(?![\\p{L}\\p{N}])")
                     .matcher(normalized).find();
             if (matches) {
-                score += 6;
+                score += topic.toLowerCase(Locale.ROOT).contains(text) ? 12 + Math.min(text.length(), 12) : 6;
             }
         }
         return score;
@@ -175,8 +233,9 @@ public class PromptKnowledgeBase {
                             && !"fixed_constraint".equals(entry.path("type").asText())
                             && !entry.path("reviewStatus").asText().contains("pending")) {
                         ObjectNode indexed = project(entry);
-                        // 别名只用于检索，返回模型上下文前再次投影白名单。
+                        // 别名与关联编号只用于检索，返回模型上下文前再次投影白名单。
                         indexed.set("searchAliases", entry.path("searchAliases"));
+                        indexed.set("relatedIds", entry.path("relatedIds"));
                         entries.add(indexed);
                     }
                 }

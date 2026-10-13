@@ -8,6 +8,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Scope;
 
+import java.util.Map;
+
 @Configuration
 @ConfigurationProperties(prefix = "langchain4j.open-ai.chat-model")
 @Data
@@ -41,6 +43,8 @@ public class AiModelConfig {
                 .temperature(temperature)
                 .logRequests(logRequests)
                 .logResponses(logResponses)
+                // 避免分段 gzip 响应被当前 HTTP 客户端提前读完，导致 JSON 只剩首个字符。
+                .customHeaders(Map.of("Accept-Encoding", "identity"))
                 .build();
     }
 }
