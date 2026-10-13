@@ -9,6 +9,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Scope;
 
+import java.util.Map;
+
 @Configuration
 @ConfigurationProperties(prefix = "langchain4j.open-ai.streaming-chat-model")
 @Data
@@ -42,6 +44,8 @@ public class StreamingChatModelConfig {
                 .temperature(temperature)
                 .logRequests(logRequests)
                 .logResponses(logResponses)
+                // 避免上游 gzip 缓冲 SSE，导致代码在生成结束后才集中输出。
+                .customHeaders(Map.of("Accept-Encoding", "identity"))
                 .build();
     }
 }
